@@ -185,7 +185,7 @@ class Operation(object):
 
         if len(kwargs) > len(fields):
             raise ValueError("Class %s does not take the following arguments: %s" % (type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
-        elif len(fields) < len(kwargs):
+        elif len(kwargs) < len(fields) :
             raise ValueError("Missing arguments for class %s: %s" % (type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
 
         for attr, attr_type in fields.iteritems():
