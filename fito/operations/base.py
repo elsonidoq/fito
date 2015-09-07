@@ -232,6 +232,13 @@ class Operation(object):
                 res[attr] = getattr(self, attr)
         return res
 
+    def get_primitive_fields(self):
+        res = {}
+        for attr, attr_type in type(self).get_fields():
+            if isinstance(attr_type, PrimitiveField):
+                res[attr] = getattr(self, attr)
+        return res
+
     @memoized_property
     def key(self):
         return '/%s' % json.dumps(self.__dict2key(self.to_dict()))
