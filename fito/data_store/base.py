@@ -3,6 +3,7 @@ from collections import defaultdict, OrderedDict
 
 from fito.operations import GetOperation, Operation
 
+
 class FifoCache(object):
     def __init__(self, size=500):
         self.queue = OrderedDict()
@@ -23,7 +24,6 @@ class FifoCache(object):
 
 
 class BaseDataStore(object):
-
     def __init__(self, get_cache_size=0, execute_cache_size=0):
         if get_cache_size > 0:
             self.get_cache = FifoCache(get_cache_size)
@@ -36,7 +36,8 @@ class BaseDataStore(object):
             self.execute_cache = None
 
     def get(self, series_name_or_operation):
-        if self.get_cache is None: return self._get(series_name_or_operation)
+        if self.get_cache is None:
+            return self._get(series_name_or_operation)
         else:
             res = self.get_cache.get(series_name_or_operation)
             if res is None:
@@ -110,6 +111,7 @@ class BaseDataStore(object):
     def _execute(self, operation):
         return operation.apply(self)
 
+
 class StorageManager(BaseDataStore):
     def __init__(self, get_cache_size=0, execute_cache_size=0):
         super(StorageManager, self).__init__(get_cache_size, execute_cache_size)
@@ -153,7 +155,7 @@ class StorageManager(BaseDataStore):
     def __contains__(self, operation):
         operation = self._get_operation(operation)
         out_ds, autosave = self._get_output_store(operation)
-        if out_ds is None: return False #raise ValueError("output store not found for operation %s" % operation)
+        if out_ds is None: return False  # raise ValueError("output store not found for operation %s" % operation)
         return operation in out_ds
 
     def _get_store(self, operation, list):
@@ -166,8 +168,10 @@ class StorageManager(BaseDataStore):
 
     def _get_output_store(self, operation):
         res = self._get_store(operation, self.outputs)
-        if res is not None: return res[1:]
-        else: return None, False
+        if res is not None:
+            return res[1:]
+        else:
+            return None, False
 
     def _get(self, operation):
         operation = self._get_operation(operation)
@@ -182,7 +186,6 @@ class StorageManager(BaseDataStore):
         return out_ds.save(operation, value)
 
 
-
 class infinitedict(defaultdict):
     def __init__(self):
         super(infinitedict, self).__init__(infinitedict)
@@ -190,12 +193,14 @@ class infinitedict(defaultdict):
     def todict(self):
         res = {}
         for k, v in self.iteritems():
-            if isinstance(v, infinitedict): res[k] = v.todict()
-            else: res[k] = v
+            if isinstance(v, infinitedict):
+                res[k] = v.todict()
+            else:
+                res[k] = v
         return res
 
-class Query(object):
 
+class Query(object):
     def __init__(self, **kwargs):
         self.dict = kwargs
 
@@ -219,7 +224,6 @@ class Query(object):
                 return False
         return True
 
-
     def todict(self):
         res = infinitedict()
         for key, val in self.dict.iteritems():
@@ -233,6 +237,5 @@ class Query(object):
                 d[key]['type'] = val.__name__
             else:
                 d[key] = val
-
 
         return res.todict()
