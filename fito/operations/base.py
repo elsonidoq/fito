@@ -29,14 +29,19 @@ class fifo_apply(object):
 
         return new_f
 
+
 def orig_apply(old_apply):
     def f(self, data_store):
         res = self._apply(data_store)
         res.__dict__['name'] = repr(self)
         return res
+
     return f
 
+
 _no_default = object()
+
+
 class Field(object):
     def __init__(self, pos=None, default=_no_default):
         self.default = default
@@ -44,9 +49,12 @@ class Field(object):
 
 
 class OperationField(Field): pass
-class PrimitiveField(Field): pass
-class OperationCollection(Field): pass
 
+
+class PrimitiveField(Field): pass
+
+
+class OperationCollection(Field): pass
 
 
 class OperationMeta(type):
@@ -61,76 +69,10 @@ class OperationMeta(type):
             setattr(Operation, method_name, property(lambda self: isinstance(self, res)))
         return res
 
-def as_operation(**args_specifications):
-    # XXX ver bien que pasa con is_method y is_class, no anda bien
-
-    is_method = args_specifications.pop('is_method', False)
-    is_class = args_specifications.pop('is_class', False)
-    out_type = args_specifications.pop('out_type', Operation)
-    out_name = args_specifications.pop('out_name', None)
-    def decorator(f):
-        f_spec = inspect.getargspec(f)
-        if f_spec[3] is None:
-            default_values = {}
-        else:
-            args_with_defaults = f_spec[0][-len(f_spec[3]):]
-            default_values = dict(zip(args_with_defaults, f_spec[3]))
-        attrs = {}
-        for i, arg in enumerate(f_spec[0]):
-            if is_class and arg == 'self': continue
-
-            if is_method and arg == 'self':
-                arg = 'this'
-            if arg in args_specifications:
-                spec = args_specifications[arg]()
-                spec.pos = len(attrs)
-            else:
-                spec = PrimitiveField(len(attrs))
-            if arg in default_values: spec.default = default_values[arg]
-            attrs[arg] = spec
-
-        def get_this_args(self, data_store=None):
-            this_args = {}
-            for k, v in attrs.iteritems():
-                value = getattr(self, k)
-                if isinstance(v, OperationField) and data_store is not None:
-                    value = data_store.execute(value)
-
-                this_args[k] = value
-
-            return this_args
-
-        def _apply(self, data_store):
-            this_args = self.get_this_args(data_store)
-            if is_method:
-                this = this_args.pop('this')
-                return f(this, **this_args)
-            else:
-                return f(**this_args)
-
-        def __repr__(self):
-            this_args = self.get_this_args()
-            args = ['%s=%s' % i for i in this_args.iteritems()]
-            args = [e if len(e) < 20 else e[:17] + '...' for e in args]
-            return '%s(%s)' % (out_name or f.__name__, ', '.join(args))
-
-        cls_attrs = attrs.copy()
-        cls_attrs['func'] = staticmethod(f)
-        cls_attrs['_apply'] = _apply
-        cls_attrs['__repr__'] = __repr__
-        cls_attrs['get_this_args'] = get_this_args
-        cls = type(out_name or f.__name__, (out_type,), cls_attrs)
-        if is_method:
-            def wrapped(*args, **kwargs):
-                return cls(*args, **kwargs)
-            return wrapped
-        else:
-            return cls
-    return decorator
-
 
 def general_new(iterable):
     return type(iterable)()
+
 
 def general_append(iterable, k, v):
     if isinstance(iterable, list):
@@ -145,6 +87,7 @@ def general_append(iterable, k, v):
         raise ValueError()
     return iterable
 
+
 def general_iterator(iterable):
     if isinstance(iterable, list) or isinstance(iterable, tuple):
         return enumerate(iterable)
@@ -153,8 +96,10 @@ def general_iterator(iterable):
     else:
         raise ValueError()
 
+
 def is_iterable(obj):
     return isinstance(obj, list) or isinstance(obj, dict) or isinstance(obj, tuple)
+
 
 def recursive_map(iterable, callable, recursion_condition=None):
     recursion_condition = recursion_condition or is_iterable
@@ -166,14 +111,19 @@ def recursive_map(iterable, callable, recursion_condition=None):
             res = general_append(res, k, callable(v))
     return res
 
+
 class Operation(object):
     __metaclass__ = OperationMeta
 
     def __init__(self, *args, **kwargs):
         fields = dict(type(self).get_fields())
-        pos2name = {attr_type.pos: attr_name for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None}
-        if len(pos2name) == 0: max_nargs = 0
-        else: max_nargs = max(pos2name) + 1 + len([attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
+        pos2name = {attr_type.pos: attr_name for attr_name, attr_type in fields.iteritems() if
+                    attr_type.pos is not None}
+        if len(pos2name) == 0:
+            max_nargs = 0
+        else:
+            max_nargs = max(pos2name) + 1 + len(
+                [attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
         assert len(args) <= max_nargs
 
         for i, arg in enumerate(args):
@@ -184,12 +134,15 @@ class Operation(object):
                 kwargs[attr] = attr_type.default
 
         if len(kwargs) > len(fields):
-            raise ValueError("Class %s does not take the following arguments: %s" % (type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
-        elif len(kwargs) < len(fields) :
-            raise ValueError("Missing arguments for class %s: %s" % (type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
+            raise ValueError("Class %s does not take the following arguments: %s" % (
+            type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
+        elif len(kwargs) < len(fields):
+            raise ValueError("Missing arguments for class %s: %s" % (
+            type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
 
         for attr, attr_type in fields.iteritems():
-            assert not isinstance(attr_type, OperationField) or isinstance(kwargs[attr], Operation), "Parameter %s should be an Operation" % attr
+            assert not isinstance(attr_type, OperationField) or isinstance(kwargs[attr],
+                                                                           Operation), "Parameter %s should be an Operation" % attr
             # if isinstance(attr_type, OperationCollection):
             #     for k, v in general_iterator(kwargs[attr]):
             #         assert isinstance(v, Operation), 'Collection %s should contain Operations' % attr
@@ -382,7 +335,7 @@ class GetOperation(Operation):
         return BinaryOperation(operation=self, op_name=op, val=scalar)
 
     def __eq__(self, scalar):
-        #XXX que onda cuando metemos esto en el hashmap
+        # XXX que onda cuando metemos esto en el hashmap
         return self.__compare('=', scalar)
 
     def __le__(self, scalar):
@@ -441,6 +394,7 @@ class AndOperation(Operation):
     def __repr__(self):
         return '%s & %s' % (self.operation1, self.operation2)
 
+
 class OrOperation(Operation):
     operation1 = OperationField()
     operation2 = OperationField()
@@ -465,7 +419,6 @@ class IntervalOperation(Operation):
 
 
 class BinaryOperation(Operation):
-
     ops = {'=': operator.eq,
            '>=': operator.ge,
            '<=': operator.le,
