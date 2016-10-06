@@ -24,8 +24,9 @@ def default_load(subdir):
 
 
 class FileDataStore(BaseDataStore):
-    def __init__(self, path, get_cache_size=0, execute_cache_size=0):
+    def __init__(self, path, get_cache_size=0, execute_cache_size=0, split_keys=True):
         super(FileDataStore, self).__init__(get_cache_size=get_cache_size, execute_cache_size=execute_cache_size)
+        self.split_keys = split_keys
         self.path = path
 
     def clean(self, cls=None):
@@ -38,19 +39,18 @@ class FileDataStore(BaseDataStore):
         shutil.rmtree(subdir)
 
     def iterkeys(self):
-        for subdir in os.listdir(self.path):
+        for subdir, _, _ in os.walk(self.path):
             subdir = os.path.join(self.path, subdir)
-            for subsubdir in os.listdir(subdir):
-                key_fname = os.path.join(subdir, subsubdir, 'key')
-                if not os.path.exists(key_fname): continue
+            key_fname = os.path.join(subdir, 'key')
+            if not os.path.exists(key_fname): continue
 
-                with open(key_fname) as f:
-                    key = f.read()
-                try:
-                    op = Operation.key2operation(key)
-                except ValueError:
-                    op = self._get_operation(key)
-                yield op
+            with open(key_fname) as f:
+                key = f.read()
+            try:
+                op = Operation.key2operation(key)
+            except ValueError:
+                op = self._get_operation(key)
+            yield op
 
     def iteritems(self):
         for op in self.iterkeys():
@@ -59,7 +59,10 @@ class FileDataStore(BaseDataStore):
     def _get_dir(self, series_name_or_operation):
         key = self._get_key(series_name_or_operation)
         h = str(mmh3.hash(key))
-        fname = os.path.join(self.path, h)
+        if self.split_keys:
+            fname = os.path.join(self.path, h[:3], h[3:6], h[6:])
+        else:
+            fname = os.path.join(self.path, h)
         return fname
 
     def _get_subdir(self, series_name_or_operation):
@@ -68,6 +71,7 @@ class FileDataStore(BaseDataStore):
         op_key = self._get_key(series_name_or_operation)
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
+            if not os.path.isdir(subdir): continue
             with open(os.path.join(subdir, 'key')) as f:
                 key = f.read()
             if key == op_key: break
