@@ -1,12 +1,10 @@
 from uuid import uuid4
 from random import random
 import cPickle as pickle
-from datetime import datetime
 import zlib
 import mmh3
 
 from pymongo.errors import DuplicateKeyError
-from memoized import memoized
 from bson.binary import Binary
 import pymongo
 from pymongo.mongo_client import MongoClient
