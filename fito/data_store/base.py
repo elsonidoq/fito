@@ -1,7 +1,10 @@
+import inspect
+from functools import wraps
 from inspect import isclass
 from collections import defaultdict, OrderedDict
 
 from fito.operations import GetOperation, Operation
+from fito.operations.decorate import as_operation, GenericDecorator, operation_from_func
 
 
 class FifoCache(object):
@@ -111,6 +114,40 @@ class BaseDataStore(object):
     def _execute(self, operation):
         return operation.apply(self)
 
+    def cache(self, *args, **kwargs):
+        kwargs['data_store'] = self
+        return AutosavedFunction(*args, **kwargs)
+
+
+class AutosavedFunction(GenericDecorator):
+    def __init__(self, **kwargs):
+        self.data_store = kwargs.pop('data_store')
+        super(AutosavedFunction, self).__init__(**kwargs)
+
+    def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
+        OperationClass = operation_from_func(
+            to_wrap=to_wrap,
+            func_to_execute=func_to_execute,
+            out_type=self.out_type,
+            out_name=self.out_name,
+            args_specifications=self.args_specifications,
+            f_spec=f_spec,
+            method_type=self.method_type
+        )
+
+        @wraps(to_wrap)
+        def decorated(*args, **kwargs):
+            operation = OperationClass(*args, **kwargs)
+            if operation not in self.data_store:
+                res = self.data_store.execute(operation)
+                self.data_store[operation] = res
+            else:
+                res = self.data_store.get(operation)
+            return res
+
+        return decorated
+
+
 
 class StorageManager(BaseDataStore):
     def __init__(self, get_cache_size=0, execute_cache_size=0):
@@ -184,6 +221,7 @@ class StorageManager(BaseDataStore):
         out_ds, autosave = self._get_output_store(operation)
         if out_ds is None: raise ValueError("output store not found for operation %s" % operation)
         return out_ds.save(operation, value)
+
 
 
 class infinitedict(defaultdict):
