@@ -1,19 +1,27 @@
-import cPickle as pickle
 import mmh3
-from random import random
 import os
 import shutil
 
-from fito.data_store.mongo import MongoHashMap
-from gensim.models import Word2Vec
+import pickle
 from fito.data_store.base import BaseDataStore
-from fito.operations.base import Operation, PrimitiveField, OperationField, as_operation, GetOperation
+from fito.operations.base import Operation, GetOperation
 
 
 class FileOperation(Operation):
     @classmethod
     def load(cls, dir):
         raise NotImplementedError()
+
+
+def default_save(obj, subdir):
+    with open(os.path.join(subdir, 'obj.pkl'), 'w') as f:
+        pickle.dump(obj, f, 2)
+
+
+def default_load(subdir):
+    with open(os.path.join(subdir, 'obj.pkl')) as f:
+        return pickle.load(f)
+
 
 class FileDataStore(BaseDataStore):
     def __init__(self, path, get_cache_size=0, execute_cache_size=0):
@@ -54,7 +62,6 @@ class FileDataStore(BaseDataStore):
         fname = os.path.join(self.path, h)
         return fname
 
-
     def _get_subdir(self, series_name_or_operation):
         dir = self._get_dir(series_name_or_operation)
         if not os.path.exists(dir): raise ValueError("Operation not found")
@@ -70,7 +77,10 @@ class FileDataStore(BaseDataStore):
 
     def _get(self, series_name_or_operation):
         subdir = self._get_subdir(series_name_or_operation)
-        return series_name_or_operation.load(subdir)
+        if hasattr(series_name_or_operation, 'load'):
+            return series_name_or_operation.load(subdir)
+        else:
+            return default_load(subdir)
 
     def save(self, series_name_or_operation, series):
         dir = self._get_dir(series_name_or_operation)
@@ -83,15 +93,20 @@ class FileDataStore(BaseDataStore):
             if key == op_key: break
         else:
             subdirs = map(int, os.listdir(dir))
-            if len(subdirs) == 0: subdir = '0'
-            else: subdir = str(max(subdirs) + 1)
+            if len(subdirs) == 0:
+                subdir = '0'
+            else:
+                subdir = str(max(subdirs) + 1)
             subdir = os.path.join(dir, subdir)
             os.makedirs(subdir)
 
         with open(os.path.join(subdir, 'key'), 'w') as f:
             f.write(op_key)
 
-        series.save(subdir)
+        if hasattr(series, 'save'):
+            series.save(subdir)
+        else:
+            default_save(series, subdir)
 
     @classmethod
     def _get_key(cls, series_name_or_operation):
