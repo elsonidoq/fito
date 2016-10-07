@@ -237,10 +237,14 @@ class Operation(object):
         return res
 
     @staticmethod
-    def dict2operation(dict):
+    def type2operation_class(operation_type):
         for cls in Operation._get_all_subclasses():
-            if cls.__name__ == dict['type']: break
-        else:
+            if cls.__name__ == operation_type: return cls
+
+    @staticmethod
+    def dict2operation(dict):
+        cls = Operation.type2operation_class(dict['type'])
+        if cls is None:
             raise ValueError('Unknown operation type')
 
         return cls._from_dict(dict)
