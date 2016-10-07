@@ -72,7 +72,10 @@ class FileDataStore(BaseDataStore):
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
             if not os.path.isdir(subdir): continue
-            with open(os.path.join(subdir, 'key')) as f:
+            key_fname = os.path.join(subdir, 'key')
+            if not os.path.exists(key_fname): continue
+
+            with open(key_fname) as f:
                 key = f.read()
             if key == op_key: break
         else:
