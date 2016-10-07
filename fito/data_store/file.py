@@ -40,7 +40,6 @@ class FileDataStore(BaseDataStore):
 
     def iterkeys(self):
         for subdir, _, _ in os.walk(self.path):
-            subdir = os.path.join(self.path, subdir)
             key_fname = os.path.join(subdir, 'key')
             if not os.path.exists(key_fname): continue
 
