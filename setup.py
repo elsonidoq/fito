@@ -10,5 +10,8 @@ setup(name='fito',
       author_email='',
       url='',
       packages=['fito'],
-      install_requires=[],
+      install_requires=[
+            'mmh3',
+            'memoized_property'
+      ],
      )
