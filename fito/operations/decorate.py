@@ -25,7 +25,6 @@ class GenericDecorator(object):
         self.args_specifications = kwargs
 
     def __get__(self, instance, owner):
-        print("GenericDecorator.__get__")
         if (instance is None and self.method_type == 'instance') or \
                 (owner is None and self.method_type == 'class'):
             return self
@@ -40,7 +39,6 @@ class GenericDecorator(object):
         return self.create_decorated(self.func, new_f, inspect.getargspec(self.func))
 
     def __call__(self, func):
-        print("GenericDecorator.__call__")
         if self.method_type:
             self.func = func
             return self
