@@ -1,10 +1,9 @@
-import inspect
+from collections import defaultdict, OrderedDict
 from functools import wraps
 from inspect import isclass
-from collections import defaultdict, OrderedDict
 
 from fito.operations import GetOperation, Operation
-from fito.operations.decorate import as_operation, GenericDecorator, operation_from_func
+from fito.operations.decorate import GenericDecorator, operation_from_func
 
 
 class FifoCache(object):
@@ -149,7 +148,7 @@ class AutosavedFunction(GenericDecorator):
                 return OperationClass
 
             @wraps(to_wrap)
-            def __call__(*args, **kwargs):
+            def __call__(_, *args, **kwargs):
                 operation = OperationClass(*args, **kwargs)
                 if operation not in self.data_store:
                     res = self.data_store.execute(operation)
