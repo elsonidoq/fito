@@ -1,8 +1,6 @@
 import inspect
 import operator
 
-import pandas as pd
-import numpy as np
 from collections import OrderedDict
 import json
 
@@ -431,6 +429,8 @@ class BinaryOperation(Operation):
     val = PrimitiveField()
 
     def _apply(self, data_store):
+        import pandas as pd
+        import numpy as np
         if np.isscalar(self.val) and pd.isnull(self.val) and self.op_name in ('=', '!='):
             res = pd.isnull(data_store.execute(self.operation))
             if self.op_name == '!=':
