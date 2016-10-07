@@ -11,10 +11,6 @@ try:
 except ImportError:
     import pickle as cPickle
 
-caches_dir = os.path.join(os.path.dirname(__file__), 'caches')
-if not os.path.exists(caches_dir): os.makedirs(caches_dir)
-VERBOSE = False
-
 
 class GenericDecorator(object):
     def __init__(self, **kwargs):
@@ -29,6 +25,7 @@ class GenericDecorator(object):
         self.args_specifications = kwargs
 
     def __get__(self, instance, owner):
+        print("GenericDecorator.__get__")
         if (instance is None and self.method_type == 'instance') or \
                 (owner is None and self.method_type == 'class'):
             return self
@@ -43,6 +40,7 @@ class GenericDecorator(object):
         return self.create_decorated(self.func, new_f, inspect.getargspec(self.func))
 
     def __call__(self, func):
+        print("GenericDecorator.__call__")
         if self.method_type:
             self.func = func
             return self
@@ -125,5 +123,17 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     cls_attrs['_apply'] = _apply
     cls_attrs['__repr__'] = __repr__
     cls_attrs['get_this_args'] = get_this_args
-    cls = type(out_name or to_wrap.__name__, (out_type,), cls_attrs)
+
+    out_name = out_name or to_wrap.__name__
+    cls = Operation.type2operation_class(out_name)
+    if cls is None:
+        # if the class does not exist, create it
+        cls = type(out_name, (out_type,), cls_attrs)
+    else:
+        # otherwise update it
+        for k, v in cls_attrs.iteritems():
+            setattr(cls, k, v)
+
+
+
     return cls
