@@ -135,17 +135,30 @@ class AutosavedFunction(GenericDecorator):
             method_type=self.method_type
         )
 
-        @wraps(to_wrap)
-        def decorated(*args, **kwargs):
-            operation = OperationClass(*args, **kwargs)
-            if operation not in self.data_store:
-                res = self.data_store.execute(operation)
-                self.data_store[operation] = res
-            else:
-                res = self.data_store.get(operation)
-            return res
+        class FunctionWrapper(object):
+            # just to make it declarative each time it is used
+            def register_operation(self):
+                pass
 
-        return decorated
+            @property
+            def wrapped_function(self):
+                return to_wrap
+
+            @property
+            def operation_class(self):
+                return OperationClass
+
+            @wraps(to_wrap)
+            def __call__(*args, **kwargs):
+                operation = OperationClass(*args, **kwargs)
+                if operation not in self.data_store:
+                    res = self.data_store.execute(operation)
+                    self.data_store[operation] = res
+                else:
+                    res = self.data_store.get(operation)
+                return res
+
+        return FunctionWrapper()
 
 
 
