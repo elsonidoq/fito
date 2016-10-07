@@ -46,10 +46,9 @@ class FileDataStore(BaseDataStore):
 
             with open(key_fname) as f:
                 key = f.read()
-            try:
-                op = Operation.key2operation(key)
-            except ValueError:
-                op = self._get_operation(key)
+
+            op = Operation.key2operation(key)
+
             yield op
 
     def iteritems(self):
