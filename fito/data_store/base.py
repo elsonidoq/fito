@@ -117,6 +117,16 @@ class BaseDataStore(object):
         kwargs['data_store'] = self
         return AutosavedFunction(*args, **kwargs)
 
+    def autosave(self, OperationClass):
+        def autosaved(*args, **kwargs):
+            operation = OperationClass(*args, **kwargs)
+            if operation not in self:
+                res = self.execute(operation)
+                self[operation] = res
+            else:
+                res = self.get(operation)
+            return res
+        return autosaved
 
 class AutosavedFunction(GenericDecorator):
     def __init__(self, **kwargs):
@@ -149,13 +159,8 @@ class AutosavedFunction(GenericDecorator):
 
             @wraps(to_wrap)
             def __call__(_, *args, **kwargs):
-                operation = OperationClass(*args, **kwargs)
-                if operation not in self.data_store:
-                    res = self.data_store.execute(operation)
-                    self.data_store[operation] = res
-                else:
-                    res = self.data_store.get(operation)
-                return res
+                func = self.data_store.autosave(OperationClass)
+                return func(*args, **kwargs)
 
         return FunctionWrapper()
 
