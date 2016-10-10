@@ -135,7 +135,8 @@ class FileDataStore(BaseDataStore):
 
     def _get(self, series_name_or_operation):
         subdir = self._get_subdir(series_name_or_operation)
-        return self.serializer.load(subdir)
+        try: return self.serializer.load(subdir)
+        except Exception: raise KeyError('{} not found'.format(series_name_or_operation))
 
     def save(self, series_name_or_operation, series):
         dir = self._get_dir(series_name_or_operation)
