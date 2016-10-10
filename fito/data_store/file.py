@@ -46,6 +46,7 @@ class FileDataStore(BaseDataStore):
         super(FileDataStore, self).__init__(get_cache_size=get_cache_size, execute_cache_size=execute_cache_size)
         self.split_keys = split_keys
         self.path = path
+        if not os.path.exists(path): os.makedirs(path)
 
         conf_file = os.path.join(path, 'conf.json')
         if os.path.exists(conf_file):
@@ -100,7 +101,11 @@ class FileDataStore(BaseDataStore):
 
     def iteritems(self):
         for op in self.iterkeys():
-            yield op, self.get(op)
+            try:
+                yield op, self.get(op)
+            except:
+                # TODO: check whether the file exists or not
+                continue
 
     def _get_dir(self, series_name_or_operation):
         key = self._get_key(series_name_or_operation)
