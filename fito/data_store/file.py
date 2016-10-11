@@ -154,13 +154,18 @@ class FileDataStore(BaseDataStore):
                 key = f.read()
             if key == op_key: break
         else:
-            subdirs = map(int, os.listdir(dir))
-            if len(subdirs) == 0:
-                subdir = '0'
-            else:
-                subdir = str(max(subdirs) + 1)
-            subdir = os.path.join(dir, subdir)
-            os.makedirs(subdir)
+            while True:
+                subdirs = map(int, os.listdir(dir))
+                if len(subdirs) == 0:
+                    subdir = '0'
+                else:
+                    subdir = str(max(subdirs) + 1)
+                subdir = os.path.join(dir, subdir)
+                try:
+                    os.makedirs(subdir)
+                    break
+                except OSError:
+                    pass
 
         with open(os.path.join(subdir, 'key'), 'w') as f:
             f.write(op_key)
