@@ -118,7 +118,8 @@ class FileDataStore(BaseDataStore):
 
     def _get_subdir(self, series_name_or_operation):
         dir = self._get_dir(series_name_or_operation)
-        if not os.path.exists(dir): raise ValueError("Operation not found")
+        if not os.path.exists(dir): raise KeyError("Operation not found")
+
         op_key = self._get_key(series_name_or_operation)
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
@@ -130,7 +131,7 @@ class FileDataStore(BaseDataStore):
                 key = f.read()
             if key == op_key: break
         else:
-            raise ValueError("Operation not found")
+            raise KeyError("Operation not found")
         return subdir
 
     def _get(self, series_name_or_operation):
@@ -140,7 +141,10 @@ class FileDataStore(BaseDataStore):
 
     def save(self, series_name_or_operation, series):
         dir = self._get_dir(series_name_or_operation)
-        if not os.path.exists(dir): os.makedirs(dir)
+        # this accounts for both checking if it not exists, and the fact that there might
+        # be another process doing the same thing
+        try: os.makedirs(dir)
+        except OSError: pass
         op_key = self._get_key(series_name_or_operation)
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
@@ -172,7 +176,7 @@ class FileDataStore(BaseDataStore):
         try:
             self._get_subdir(series_name_or_operation)
             return True
-        except ValueError:
+        except KeyError:
             return False
 
     @classmethod
