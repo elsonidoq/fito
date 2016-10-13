@@ -9,34 +9,61 @@ from fito.operations.base import Operation, GetOperation
 
 
 class Serializer(object):
-    @staticmethod
-    def save(obj, subdir): raise NotImplemented()
+    @classmethod
+    def save(cls, obj, subdir): raise NotImplemented()
 
-    @staticmethod
-    def load(subdir): raise NotImplemented()
+    @classmethod
+    def load(cls, subdir): raise NotImplemented()
+
+    @classmethod
+    def exists(cls, subdir): raise NotImplemented()
+
+    @classmethod
+    def iter_subclasses(cls):
+        queue = cls.__subclasses__()
+        while len(queue) > 0:
+            e = queue.pop()
+            l = e.__subclasses__()
+            yield e
+            queue.extend(l)
 
 
-class PickleSerializer(Serializer):
-    @staticmethod
-    def save(obj, subdir):
-        with open(os.path.join(subdir, 'obj.pkl'), 'w') as f:
+class SingleFileSerializer(Serializer):
+    @classmethod
+    def get_fname(cls, subdir): raise NotImplemented()
+
+    @classmethod
+    def exists(cls, subdir):
+        return os.path.exists(cls.get_fname(subdir))
+
+class PickleSerializer(SingleFileSerializer):
+    @classmethod
+    def get_fname(cls, subdir):
+        return os.path.join(subdir, 'obj.pkl')
+
+    @classmethod
+    def save(cls, obj, subdir):
+        with open(cls.get_fname(subdir), 'w') as f:
             pickle.dump(obj, f, 2)
 
-    @staticmethod
-    def load(subdir):
-        with open(os.path.join(subdir, 'obj.pkl')) as f:
+    @classmethod
+    def load(cls, subdir):
+        with open(cls.get_fname(subdir)) as f:
             return pickle.load(f)
 
+class RawSerializer(SingleFileSerializer):
+    @classmethod
+    def get_fname(cls, subdir):
+        return os.path.join(subdir, 'obj.raw')
 
-class RawSerializer(Serializer):
-    @staticmethod
-    def save(obj, subdir):
-        with open(os.path.join(subdir, 'obj.raw'), 'w') as f:
+    @classmethod
+    def save(cls, obj, subdir):
+        with open(cls.get_fname(subdir), 'w') as f:
             f.write(obj)
 
-    @staticmethod
-    def load(subdir):
-        with open(os.path.join(subdir, 'obj.raw')) as f:
+    @classmethod
+    def load(cls, subdir):
+        with open(cls.get_fname(subdir)) as f:
             return f.read()
 
 
@@ -60,7 +87,7 @@ class FileDataStore(BaseDataStore):
                                                                                                     serializer.__name__)
                     )
             else:
-                for cls in Serializer.__subclasses__():
+                for cls in Serializer.iter_subclasses():
                     if cls.__name__ == conf['serializer']:
                         serializer = cls
                         break
@@ -68,9 +95,10 @@ class FileDataStore(BaseDataStore):
                     raise ValueError('Could not find serializer {}'.format(conf['serializer']))
 
         else:
+            serializer = serializer or PickleSerializer
             this_conf = {
                 # this should include the path...
-                'serializer': (serializer or PickleSerializer).__name__
+                'serializer': serializer.__name__
             }
 
             with open(conf_file, 'w') as f:
@@ -95,7 +123,11 @@ class FileDataStore(BaseDataStore):
             with open(key_fname) as f:
                 key = f.read()
 
-            op = Operation.key2operation(key)
+            try:
+                op = Operation.key2operation(key)
+            except ValueError, e: # there might be a key that is not a valid json
+                if e.args[0] == 'Unknown operation type': raise e
+                continue
 
             yield op
 
@@ -129,9 +161,10 @@ class FileDataStore(BaseDataStore):
 
             with open(key_fname) as f:
                 key = f.read()
-            if key == op_key: break
+            if key == op_key and self.serializer.exists(subdir): break
         else:
             raise KeyError("Operation not found")
+
         return subdir
 
     def _get(self, series_name_or_operation):
