@@ -1,9 +1,10 @@
+from time import time, sleep
 import json
 import mmh3
 import os
+import pickle
 import shutil
 
-import pickle
 from fito.data_store.base import BaseDataStore
 from fito.operations.base import Operation, GetOperation
 
@@ -153,7 +154,8 @@ class FileDataStore(BaseDataStore):
         if not os.path.exists(dir): raise KeyError("Operation not found")
 
         op_key = self._get_key(series_name_or_operation)
-        for subdir in os.listdir(dir):
+        subdirs = os.listdir(dir)
+        for subdir in subdirs:
             subdir = os.path.join(dir, subdir)
             if not os.path.isdir(subdir): continue
             key_fname = os.path.join(subdir, 'key')
@@ -161,6 +163,12 @@ class FileDataStore(BaseDataStore):
 
             with open(key_fname) as f:
                 key = f.read()
+
+            if len(key) == 0 and time() - os.path.getctime(key_fname) < 0.5:
+                sleep(0.5)
+                print "sleep(0.5)"
+                with open(key_fname) as f:
+                    key = f.read()
             if key == op_key and self.serializer.exists(subdir): break
         else:
             raise KeyError("Operation not found")
@@ -170,7 +178,7 @@ class FileDataStore(BaseDataStore):
     def _get(self, series_name_or_operation):
         subdir = self._get_subdir(series_name_or_operation)
         try: return self.serializer.load(subdir)
-        except Exception: raise KeyError('{} not found'.format(series_name_or_operation))
+        except: raise KeyError('{} not found'.format(series_name_or_operation))
 
     def save(self, series_name_or_operation, series):
         dir = self._get_dir(series_name_or_operation)
@@ -212,8 +220,8 @@ class FileDataStore(BaseDataStore):
 
     def __contains__(self, series_name_or_operation):
         try:
-            self._get_subdir(series_name_or_operation)
-            return True
+            subdir = self._get_subdir(series_name_or_operation)
+            return self.serializer.exists(subdir)
         except KeyError:
             return False
 
