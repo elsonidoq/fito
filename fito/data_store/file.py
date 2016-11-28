@@ -69,8 +69,7 @@ class RawSerializer(SingleFileSerializer):
 
 
 class FileDataStore(BaseDataStore):
-    def __init__(self, path, get_cache_size=0, execute_cache_size=0, split_keys=True,
-                 serializer=None):
+    def __init__(self, path, get_cache_size=0, execute_cache_size=0, split_keys=True, serializer=None):
         super(FileDataStore, self).__init__(get_cache_size=get_cache_size, execute_cache_size=execute_cache_size)
         self.split_keys = split_keys
         self.path = path

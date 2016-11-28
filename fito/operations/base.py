@@ -139,9 +139,6 @@ class Operation(object):
         for attr, attr_type in fields.iteritems():
             assert not isinstance(attr_type, OperationField) or isinstance(kwargs[attr],
                                                                            Operation), "Parameter %s should be an Operation" % attr
-            # if isinstance(attr_type, OperationCollection):
-            #     for k, v in general_iterator(kwargs[attr]):
-            #         assert isinstance(v, Operation), 'Collection %s should contain Operations' % attr
 
         for attr, attr_type in kwargs.iteritems():
             setattr(self, attr, attr_type)
