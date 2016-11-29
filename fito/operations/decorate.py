@@ -15,14 +15,14 @@ except ImportError:
 class GenericDecorator(object):
     def __init__(self, **kwargs):
         """
+        Abstracts all the boilerplate required to build a decorator that works on functions, instance methods and class methods
+
+
         :param method_type: if is None, the decorated function is assumed to be a function, otherwise it is assumed
             to be a method. If method_type == 'instance' the function is assumed to be an instance method otherwise a
             classmethod
         """
         self.method_type = kwargs.pop('method_type', None)
-        self.out_type = kwargs.pop('out_type', Operation)
-        self.out_name = kwargs.pop('out_name', None)
-        self.args_specifications = kwargs
 
     def __get__(self, instance, owner):
         if (instance is None and self.method_type == 'instance') or \
@@ -46,10 +46,35 @@ class GenericDecorator(object):
             return self.create_decorated(func, func)
 
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
+        """
+        Abstract method that should be implemented in order to build a decorator
+
+        The difference between `to_wrap` and `func_to_execute` is the fact that in the case of instance methods
+        and class methods, `func_to_execute` has the first argument already binded.
+        If `to_wrap` is just a function, then `to_wrap == func_to_execute`
+
+        :param to_wrap: Original wrapped function
+        :param func_to_execute: You should execute this function
+        :param f_spec: The argspec of the function to be decorated, if None, it should be computed from to_wrap (TODO: remove this argument)
+
+        """
         raise NotImplementedError()
 
 
 class as_operation(GenericDecorator):
+    """
+    Creates an operation from a callable
+    """
+    def __init__(self, **kwargs):
+        """
+        :param out_type: Base class of the operation to be built. Defaults to `Operation`
+        :param out_name: Name of the class to be built, deafults to the decorated function name.
+        """
+        self.out_type = kwargs.pop('out_type', Operation)
+        self.out_name = kwargs.pop('out_name', None)
+        self.args_specifications = kwargs
+        super(as_operation, self).__init__(**kwargs)
+
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
         f_spec = f_spec or inspect.getargspec(to_wrap)
         return operation_from_func(
@@ -66,13 +91,8 @@ class as_operation(GenericDecorator):
 def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_specifications, f_spec=None, method_type=False):
     """
     In the case of methods, to_wrap is not the same to func_to_execute
-    :param to_wrap:
-    :param func_to_execute:
-    :param out_type:
-    :param out_name:
-    :param args_specifications:
-    :param f_spec:
-    :param method_type:
+    :param to_wrap: See `GenericDecorator.create_decorated` for an explanation
+    :param func_to_execute: See `GenericDecorator.create_decorated` for an explanation
     :return:
     """
     f_spec = f_spec or inspect.getargspec(to_wrap)
