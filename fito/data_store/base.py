@@ -188,7 +188,13 @@ class BaseDataStore(object):
 
 class AutosavedFunction(GenericDecorator):
     def __init__(self, **kwargs):
+        """
+        For available arguments see `as_operation` decorator
+        """
         self.data_store = kwargs.pop('data_store')
+        self.out_type = kwargs.pop('out_type', Operation)
+        self.out_name = kwargs.pop('out_name', None)
+        self.args_specifications = kwargs
         super(AutosavedFunction, self).__init__(**kwargs)
 
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
