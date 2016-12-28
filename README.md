@@ -7,7 +7,7 @@
 
 Fito is a package that works around the concept of `Operations` and `DataStores`.
 
-The simplest way of thinking it is that a subclass of `Operation` define
+The simplest way of thinking it is that a subclass of `Operation` defines
 a function, and an instance defines that function being also binded 
 to it's arguments. 
 
@@ -23,11 +23,13 @@ Extra features:
 * `as_operation` Decorator that turns any function into a subclass of `Operation`
 * `DataStore.autosaved`: Decorator to turn automatic caching on any function. 
 Creates an operation out of the function and the data store is used for caching the results. 
+* Both decorators can be used for functions, instance and class methods.
 
 A small example is worth
 ```
 from fito.data_store.file import FileDataStore
 ds = FileDataStore('test') # can be reeplaced by MongoHashMap
+
 @ds.cache()
 def f(x, y=1):
     print "executed"
