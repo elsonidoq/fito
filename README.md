@@ -7,15 +7,17 @@
 
 Fito is a package that works around the concept of `Operations` and `DataStores`.
 
-The simplest way of thinking it is that subclasses of `Operation` defines 
-a function, and an instance if this subclass, defines the function 
-binded with it's arguments. 
+The simplest way of thinking it is that a subclass of `Operation` define
+a function, and an instance, defines that function being also binded 
+with it's arguments. 
 
-If the types are **json-serializable**, then an `Operation` is as well. 
+If the types of the function inputs are **json-serializable**, 
+then an `Operation` is as well. 
 Not only that, but a operations are also **hashable**.
 
-That lead us to a `DataStore`, whose capability is to index an `Operation`.
-There are two implementations, one that uses the `FileSystem` and anotherone that uses `MongoDB`.
+That leads us to the `DataStore`, whose capability is to index an `Operation`.
+There are two implementations, one that uses the `FileSystem` and 
+anotherone that uses `MongoDB`.
 
 Extra features:
 * `as_operation` decorator: It turns any function into a subclass of `Operation`
