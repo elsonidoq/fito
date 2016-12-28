@@ -21,7 +21,8 @@ anotherone that uses [MongoDB](https://www.mongodb.com/).
 
 Extra features:
 * `as_operation` Decorator that turns any function into a subclass of `Operation`
-* `DataStore.autosaved`: Decorator to turn automatic cache for any function. Creates an operation out of the function and the data store is used for caching the results. So you can cheaply cache the results either in mongodb or in the file system. 
+* `DataStore.autosaved`: Decorator to turn automatic caching on any function. 
+Creates an operation out of the function and the data store is used for caching the results. 
 
 A small example is worth
 ```
