@@ -1,3 +1,8 @@
+# Installation
+
+`pip install fito`
+
+
 # Functionality
 
 Fito is a package that works around the concept of `Operations` and `DataStores`.
