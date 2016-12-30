@@ -1,40 +1,9 @@
 from collections import OrderedDict
 from functools import wraps
 
+from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations import GetOperation, Operation
 from fito.operations.decorate import GenericDecorator, operation_from_func
-
-
-class FifoCache(object):
-    """
-    Fifo caching strategy
-    It is useful when there are operations that are costly to execute and you might need the result
-    near in the future for computing another operation
-    """
-
-    no_result = object()
-
-    def __init__(self, size=500, verbose=False):
-        self.verbose = verbose
-        self.queue = OrderedDict()
-        self.size = size
-
-    def get(self, operation):
-        if operation not in self.queue:
-            return self.no_result
-
-        if self.verbose: print "Fifo hit!"
-        res = self.queue.pop(operation)
-        self.queue[operation] = res
-        return res
-
-    def set(self, operation, value):
-        if isinstance(operation, basestring) or operation.is_get:
-            return
-        if len(self.queue) > self.size:
-            if self.verbose: print "Fifo pop!"
-            op, _ = self.queue.popitem(False)
-        self.queue[operation] = value
 
 
 class BaseDataStore(object):
@@ -65,10 +34,7 @@ class BaseDataStore(object):
         else:
             self.get_cache = None
 
-        if execute_cache_size > 0:
-            self.execute_cache = FifoCache(execute_cache_size)
-        else:
-            self.execute_cache = None
+        self.operations_runner = OperationRunner(execute_cache_size)
 
     def get(self, name_or_operation):
         """
@@ -149,17 +115,7 @@ class BaseDataStore(object):
         Executes an operation using this data store as input
         If this data store was configured to use an execute cache, it will be used
         """
-        if self.execute_cache is None:
-            return self._execute(operation)
-        else:
-            res = self.execute_cache.get(operation)
-            if res is self.execute_cache.no_result:
-                res = self._execute(operation)
-                self.execute_cache.set(operation, res)
-            return res
-
-    def _execute(self, operation):
-        return operation.apply(self)
+        self.operations_runner.execute(operation)
 
     def cache(self, **kwargs):
         """
