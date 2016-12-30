@@ -21,11 +21,12 @@ anotherone that uses [MongoDB](https://www.mongodb.com/).
 
 Extra features:
 * `as_operation` Decorator that turns any function into a subclass of `Operation`
-* `DataStore.autosaved`: Decorator to turn automatic caching on any function. 
+* `DataStore.cache`: Decorator to turn automatic caching on any function. 
 Creates an operation out of the function and the data store is used for caching the results. 
 * Both decorators can be used for functions, instance and class methods.
 
-A small example is worth
+# How does it look like?
+It looks like this
 ```
 from fito.data_store.file import FileDataStore
 ds = FileDataStore('test') # can be reeplaced by MongoHashMap
@@ -36,17 +37,18 @@ def f(x, y=1):
     return x + y
 ```
 
-An example output would be
-```
-In [26]: f(1)
-executed
-Out[26]: 2
+That code is enough to cache the executions of `f` into the file system
+You can see more examples here:
+* A [simple execution flow](https://github.com/elsonidoq/fito/blob/master/examples/simple_flow.py)
+Shows how operations can be used to express entities linked together by their execution
 
-In [27]: f(1)
-Out[27]: 2
-In [30]: ds.clean()
+* The [auto caching decorator](https://github.com/elsonidoq/fito/blob/master/examples/auto_caching.py)
+Shows how operations joint with data stores can be used for automatic function caching
 
-In [31]: f(1)
-executed
-Out[31]: 3
-```
+* The [execution FIFO](https://github.com/elsonidoq/fito/blob/master/examples/expensive_computations.py)
+Shows how we can leverage for execution cache
+
+# Contributing
+This is my first open source piece of software where I'm commiting myself to mantain the next year. 
+Let [me](https://twitter.com/ideasrapidas) know if you happen to use it! 
+And please, do not hesitate on sending pull requests :D
