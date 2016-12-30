@@ -50,6 +50,6 @@ Shows how operations joint with data stores can be used for automatic function c
 Shows how we can leverage on execution cache to avoid recomputing recently executed operations 
 
 # Contributing
-This is my first open source piece of software where I'm commiting myself to mantain the next year. 
+This is my first open source piece of software where I'm commiting myself to mantain for the next year. 
 Let [me](https://twitter.com/ideasrapidas) know if you happen to use it! 
 And please, do not hesitate on sending pull requests :D
