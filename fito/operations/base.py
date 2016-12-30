@@ -290,34 +290,3 @@ class GetOperation(Operation):
     def _apply(self, data_store):
         return data_store.get(self.name)
 
-
-class fifo_apply(object):
-    def __init__(self, size=500):
-        self.queue = OrderedDict()
-        self.size = size
-
-    def __call__(self, old_apply):
-        def new_f(the_self, data_store):
-            if the_self in self.queue:
-                return self.queue[the_self]
-            else:
-                res = old_apply(the_self, data_store)
-
-                if not isinstance(the_self, GetOperation):
-                    if len(self.queue) > self.size: self.queue.popitem(False)
-                    self.queue[the_self] = res
-
-            return res
-
-        return new_f
-
-
-def orig_apply(old_apply):
-    def f(self, data_store):
-        res = self._apply(data_store)
-        res.__dict__['name'] = repr(self)
-        return res
-
-    return f
-
-

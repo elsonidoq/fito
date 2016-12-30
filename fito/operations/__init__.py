@@ -1,1 +1,1 @@
-from .base import Operation, fifo_apply, GetOperation
+from .base import Operation, GetOperation
