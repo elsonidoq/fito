@@ -1,64 +1,53 @@
 import json
 from collections import OrderedDict
 
+from fito.operations.utils import recursive_map, is_iterable
 from memoized_property import memoized_property
-
-
-class fifo_apply(object):
-    def __init__(self, size=500):
-        self.queue = OrderedDict()
-        self.size = size
-
-    def __call__(self, old_apply):
-        def new_f(the_self, data_store):
-            if the_self in self.queue:
-                return self.queue[the_self]
-            else:
-                res = old_apply(the_self, data_store)
-
-                if not isinstance(the_self, GetOperation):
-                    if len(self.queue) > self.size: self.queue.popitem(False)
-                    self.queue[the_self] = res
-
-            return res
-
-        return new_f
-
-
-def orig_apply(old_apply):
-    def f(self, data_store):
-        res = self._apply(data_store)
-        res.__dict__['name'] = repr(self)
-        return res
-
-    return f
-
 
 # it's a constant that is different from every other object
 _no_default = object()
 
 
 class Field(object):
+    """
+    Base class for field definition on an :py:class:`Operation`
+    """
     def __init__(self, pos=None, default=_no_default):
         self.default = default
         self.pos = pos
 
 
-class OperationField(Field): pass
+class OperationField(Field):
+    """
+    Specifies a Field whose value will be an Operation
+    """
 
 
-class PrimitiveField(Field): pass
+class PrimitiveField(Field):
+    """
+    Specifies a Field whose value is going to be a python object
+    """
 
 
-class OperationCollection(Field): pass
+class OperationCollection(Field):
+    """
+    Specifies a Field whose value is going to be a collection of operations
+    """
 
 
 class OperationMeta(type):
     def __new__(cls, name, bases, dct):
+        """
+        Called when the class is created (i.e. when it is loaded into the module)
+
+        Checks whether the attributes spec makes sense or not.
+
+        :return: New Operation subclass
+        """
         res = type.__new__(cls, name, bases, dct)
         fields_pos = sorted([attr_type.pos for attr_name, attr_type in res.get_fields() if attr_type.pos is not None])
         if fields_pos != range(len(fields_pos)):
-            raise ValueError("Bad fields pos for %s" % name)
+            raise ValueError("Bad `pos` for attribute %s" % name)
 
         if name != 'Operation':
             method_name = 'is_%s' % (name.replace('Operation', '').lower())
@@ -66,53 +55,41 @@ class OperationMeta(type):
         return res
 
 
-def general_new(iterable):
-    return type(iterable)()
-
-
-def general_append(iterable, k, v):
-    if isinstance(iterable, list):
-        assert k == len(iterable)
-        iterable.append(v)
-    elif isinstance(iterable, dict):
-        iterable[k] = v
-    elif isinstance(iterable, tuple):
-        assert k == len(iterable)
-        iterable = iterable + (v,)
-    else:
-        raise ValueError()
-    return iterable
-
-
-def general_iterator(iterable):
-    if isinstance(iterable, list) or isinstance(iterable, tuple):
-        return enumerate(iterable)
-    elif isinstance(iterable, dict):
-        return iterable.iteritems()
-    else:
-        raise ValueError()
-
-
-def is_iterable(obj):
-    return isinstance(obj, list) or isinstance(obj, dict) or isinstance(obj, tuple)
-
-
-def recursive_map(iterable, callable, recursion_condition=None):
-    recursion_condition = recursion_condition or is_iterable
-    res = general_new(iterable)
-    for k, v in general_iterator(iterable):
-        if recursion_condition(v):
-            res = general_append(res, k, recursive_map(v, callable, recursion_condition))
-        else:
-            res = general_append(res, k, callable(v))
-    return res
-
-
 class Operation(object):
+    """
+    Base class for any operation.
+
+    It handles the spec checking in order to guarantee that only valid instances can be generated
+
+    An example would be
+
+    >>> class GetAge(Operation):
+    >>>    user_id = PrimitiveField(0)
+    >>>
+    >>> def _apply(self, datas_tore):
+    >>>     return data_store.get(self)
+    >>>
+    >>> def add(self, other):
+    >>>     return AddOperation(self, other)
+
+    >>> class AddOperation(Operation):
+    >>>     left = OperationField(0)
+    >>>     right = OperationField(1)
+    >>>
+    >>>     def _apply(self, data_store):
+    >>>         return data_store.execute(self.left) + data_store.execute(self.right)
+    >>>
+    >>> data_store = {1: 30, 2: 40}
+    >>> op = GetAge(1).add(GetAge(2))
+    >>>
+    """
     __metaclass__ = OperationMeta
 
     def __init__(self, *args, **kwargs):
+        # Get the field spec
         fields = dict(type(self).get_fields())
+
+        #
         pos2name = {attr_type.pos: attr_name for attr_name, attr_type in fields.iteritems() if
                     attr_type.pos is not None}
         if len(pos2name) == 0:
@@ -312,3 +289,35 @@ class GetOperation(Operation):
 
     def _apply(self, data_store):
         return data_store.get(self.name)
+
+
+class fifo_apply(object):
+    def __init__(self, size=500):
+        self.queue = OrderedDict()
+        self.size = size
+
+    def __call__(self, old_apply):
+        def new_f(the_self, data_store):
+            if the_self in self.queue:
+                return self.queue[the_self]
+            else:
+                res = old_apply(the_self, data_store)
+
+                if not isinstance(the_self, GetOperation):
+                    if len(self.queue) > self.size: self.queue.popitem(False)
+                    self.queue[the_self] = res
+
+            return res
+
+        return new_f
+
+
+def orig_apply(old_apply):
+    def f(self, data_store):
+        res = self._apply(data_store)
+        res.__dict__['name'] = repr(self)
+        return res
+
+    return f
+
+
