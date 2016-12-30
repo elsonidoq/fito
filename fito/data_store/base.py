@@ -6,20 +6,33 @@ from fito.operations.decorate import GenericDecorator, operation_from_func
 
 
 class FifoCache(object):
-    def __init__(self, size=500):
+    """
+    Fifo caching strategy
+    It is useful when there are operations that are costly to execute and you might need the result
+    near in the future for computing another operation
+    """
+
+    no_result = object()
+
+    def __init__(self, size=500, verbose=False):
+        self.verbose = verbose
         self.queue = OrderedDict()
         self.size = size
 
     def get(self, operation):
-        if operation in self.queue:
-            res = self.queue.pop(operation)
-            self.queue[operation] = res
-            return res
+        if operation not in self.queue:
+            return self.no_result
+
+        if self.verbose: print "Fifo hit!"
+        res = self.queue.pop(operation)
+        self.queue[operation] = res
+        return res
 
     def set(self, operation, value):
         if isinstance(operation, basestring) or operation.is_get:
             return
         if len(self.queue) > self.size:
+            if self.verbose: print "Fifo pop!"
             op, _ = self.queue.popitem(False)
         self.queue[operation] = value
 
@@ -140,7 +153,7 @@ class BaseDataStore(object):
             return self._execute(operation)
         else:
             res = self.execute_cache.get(operation)
-            if res is None:
+            if res is self.execute_cache.no_result:
                 res = self._execute(operation)
                 self.execute_cache.set(operation, res)
             return res
@@ -160,17 +173,6 @@ class BaseDataStore(object):
     def autosave(self, OperationClass):
         """
         Creates an automatic cache for a given OperationClass (i.e. a class whose parent is Operation):
-
-            class MyOperation(Operation):
-                a = PrimitiveField()
-                def _apply(self, data_store):
-                    return self.a
-
-            data_store = Some data store
-            autosaved = data_store.autosave(MyOperation)
-            autosaved(a=1) # executes it and saves the result
-            autosaved(a=1) # retrieves it
-            autosaved(a=2) # executes it and saves the result
 
         The returned function receives the same arguments that `OperationClass` declared, and uses the `self` to save the results
 
