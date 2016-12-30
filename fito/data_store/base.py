@@ -26,7 +26,11 @@ class FifoCache(object):
 
 class BaseDataStore(object):
     """
-    Base class for all data stores, to implement a backend you need to implement all abstract methods
+    Base class for all data stores, to implement a backend you need to implement
+    _get, save and iteritems methods
+
+    The _get is the actual get procedure, the caching strategy is part of the DataStore implementation
+
     """
 
     def __init__(self, get_cache_size=0, execute_cache_size=0):

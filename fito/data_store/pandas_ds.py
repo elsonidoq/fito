@@ -6,6 +6,9 @@ from fito.data_store.base import BaseDataStore
 
 
 class PandasDataStore(BaseDataStore):
+    """
+    DataStore implemented using a pandas data frame
+    """
 
     def __init__(self, df=None):
         super(PandasDataStore, self).__init__()

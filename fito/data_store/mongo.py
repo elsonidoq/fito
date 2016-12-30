@@ -1,29 +1,28 @@
-from uuid import uuid4
-from random import random
-import cPickle as pickle
-import zlib
 import mmh3
+from random import random
 
-from pymongo.errors import DuplicateKeyError
-from bson.binary import Binary
 import pymongo
-from pymongo.mongo_client import MongoClient
+from fito.data_store.base import BaseDataStore
+from fito.operations import Operation
 from gridfs import GridFS
 from pymongo.collection import Collection
-from fito.operations import Operation
-
-from fito.data_store.base import BaseDataStore
-import pandas as pd
+from pymongo.errors import DuplicateKeyError
+from pymongo.mongo_client import MongoClient
 
 
 def get_collection(client, name):
     dot = name.index('.')
-    db, coll = name[:dot], name[dot+1:]
+    db, coll = name[:dot], name[dot + 1:]
     return client[db][coll]
 
-global_client = MongoClient(max_pool_size=30)
+
+global_client = MongoClient()
+
 
 class MongoHashMap(BaseDataStore):
+    """
+    Mongo based key value store
+    """
     def __init__(self, coll, client=None, add_increlemtal_id=True, get_cache_size=0, execute_cache_size=0,
                  use_gridfs=False):
         super(MongoHashMap, self).__init__(get_cache_size=get_cache_size, execute_cache_size=execute_cache_size)
@@ -68,7 +67,6 @@ class MongoHashMap(BaseDataStore):
     def ensure_indices(self):
         self.coll.ensure_index('op_hash')
         self.coll.ensure_index('rnd')
-
 
     @classmethod
     def _get_op_hash(cls, operation):
@@ -179,7 +177,7 @@ class MongoHashMap(BaseDataStore):
                 rnd_number = random()
             else:
                 rnd_number = rnd.random()
-            lbound = rnd_number*(1-size)
+            lbound = rnd_number * (1 - size)
             ubound = lbound + size
 
             cur = self.coll.find({'rnd': {'$gte': lbound, '$lt': ubound}})
@@ -215,7 +213,8 @@ class MongoHashMap(BaseDataStore):
         index = [('operation.%s' % k, pymongo.ASCENDING) for k in query.dict.keys()]
         self.coll.ensure_index(index)
 
-    def get_batch(self): return MongoDataStore.Batch(self)
+    def get_batch(self):
+        return MongoHashMap.Batch(self)
 
     def _save_batch(self, batch):
         if len(batch._docs) > 0:
@@ -236,142 +235,3 @@ class MongoHashMap(BaseDataStore):
 
         def __len__(self):
             return len(self._docs)
-
-
-class MongoDataStore(MongoHashMap):
-    def __init__(self, coll, client=None, autosave_index=True, add_increlemtal_id=True, get_cache_size=0, execute_cache_size=0,
-                 use_gridfs=False):
-        super(MongoDataStore, self).__init__(coll, client=client, add_increlemtal_id=add_increlemtal_id,
-                                             get_cache_size=get_cache_size, execute_cache_size=execute_cache_size,
-                                             use_gridfs=use_gridfs)
-
-        self.autosave_index = autosave_index
-        self._load_index()
-
-
-    @classmethod
-    def build(cls, ds, coll):
-        assert ds.fdf.index.is_monotonic
-        res = MongoDataStore(coll)
-
-        batch = res.get_batch()
-        for i, (op_str, series) in enumerate(ds.iteritems()):
-            operation = cls._get_operation(op_str)
-            batch.append(operation, series)
-            if i % 1000 == 0:
-                batch.commit()
-                print i
-
-        batch.commit()
-        res.ensure_indices()
-        return res
-
-
-    def _load_index(self):
-        index_doc = self.coll.conf.find_one({'key': 'index'})
-        if index_doc is None:
-            self._index = None
-        else:
-            value = index_doc['value']
-            if self.use_gridfs:
-                value = self.gridfs.get(value).read()
-            self._index = pickle.loads(zlib.decompress(value))
-
-    def _set_index(self, index):
-        self._index = index
-        if self.autosave_index:
-            self.save_index()
-
-    def save_index(self):
-        zvalues = Binary(zlib.compress(pickle.dumps(self._index, 2), 1))
-        doc = {'key': 'index', 'value': zvalues}
-
-        if self.use_gridfs:
-            value = doc.pop('value')
-            doc['value'] = self.gridfs.put(value)
-
-        self.coll.conf.update({'key': 'index'}, doc, upsert=True)
-
-    def _get_index(self):
-        return self._index
-
-    index = property(_get_index, _set_index)
-
-    def _build_doc(self, operation, series):
-        zvalues = zlib.compress(pickle.dumps(series.values, 2), 1)
-        if not self.use_gridfs:
-            zvalues = Binary(zvalues)
-
-        op_dict = operation.to_dict()
-        op_dict['involved_series'] = operation.involved_series()
-
-        doc = {'values': zvalues,
-               'dtype': series.dtype.str, 'operation': op_dict}
-
-        if self.index is None:
-            index = zlib.compress(pickle.dumps(series.index, 2), 1)
-            if not self.use_gridfs:
-                index = Binary(index)
-            doc['index'] = index
-
-        op_hash = self._get_op_hash(operation)
-        doc['op_hash'] = op_hash
-        doc['rnd'] = random()
-        return doc
-
-    def save(self, series_name_or_operation, values):
-        operation = self._get_operation(series_name_or_operation)
-        doc = self._build_doc(operation, values)
-        if self.use_gridfs and self.index is None:
-            doc['index'] = self.gridfs.put(doc['index'])
-        self._insert([doc])
-
-    def _parse_doc(self, doc):
-        if self.use_gridfs:
-            doc['values'] = self.gridfs.get(doc['values']).read()
-        values = pickle.loads(zlib.decompress(doc['values']))
-
-        operation = self._dict2operation(doc['operation'])
-
-        if self._index is not None:
-            res = pd.Series(data=values, name=repr(operation), index=self._index)
-        else:
-            if self.use_gridfs:
-                doc['index'] = self.gridfs.get(doc['index']).read()
-            index = pickle.loads(zlib.decompress(doc['index']))
-            res = pd.Series(data=values, name=repr(operation), index=index)
-        return operation, res
-
-    def iterkeys(self):
-        for doc in self.coll.find(timeout=False, fields=['operation']):
-            operation = self._dict2operation(doc['operation'])
-            yield operation
-
-    def extend(self, df):
-        #XXX this is because PandasDataStore's len semantic is "wrong"
-        assert len(list(df.iteritems())) == len(self)
-        if self.index is None:
-            raise NotImplementedError('Not implemented on per document index')
-
-        res = MongoDataStore('%s.%s' % (self.coll.database.name, uuid4().hex), use_gridfs=self.use_gridfs)
-
-        created_index = False
-        for key, new_v in df.iteritems():
-            old_v = self[key]
-            v = new_v.append(old_v)
-            v = v.sort_index()
-
-            if not created_index:
-                res._index = v.index
-                res.save_index()
-            res[key] = v
-
-        res.coll.rename(self.coll.name, dropTarget=True)
-        res.coll.conf.rename(self.coll.conf.name, dropTarget=True)
-        if self.use_gridfs:
-            res.coll.fs.files.rename(self.coll.fs.files.name, dropTarget=True)
-            res.coll.fs.chunks.rename(self.coll.fs.chunks.name, dropTarget=True)
-        self._load_index()
-
-
-
