@@ -1,6 +1,7 @@
 import json
 from collections import OrderedDict
 
+from StringIO import StringIO
 from fito.operations.utils import recursive_map, is_iterable
 from memoized_property import memoized_property
 
@@ -55,6 +56,10 @@ class OperationMeta(type):
         return res
 
 
+class InvalidOperationInstance(Exception):
+    pass
+
+
 class Operation(object):
     """
     Base class for any operation.
@@ -97,7 +102,14 @@ class Operation(object):
         else:
             max_nargs = max(pos2name) + 1 + len(
                 [attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
-        assert len(args) <= max_nargs
+        if len(args) > max_nargs:
+            raise InvalidOperationInstance(
+                (
+                    "This operation was instanced with {given_args} positional arguments, but I only know how "
+                    "to handle the first {specified_args} positional arguments.\n"
+                    "Instance the fields with `pos` keyword argument (e.g. PrimitiveField(pos=0))"
+                ).format(given_args=len(args), specified_args=max_nargs)
+            )
 
         for i, arg in enumerate(args):
             kwargs[pos2name[i]] = arg
@@ -177,6 +189,42 @@ class Operation(object):
                 res[attr] = recursive_map(val, f)
 
         return res
+
+    # This is a little bit hacky, but I just want to write this short
+    class Exporter(object):
+        def __init__(self, module, what, **kwargs):
+            self.what = what
+            self.dump = lambda f: module.dump(what, f, **kwargs)
+            self.dumps = lambda: module.dumps(what, **kwargs)
+
+    @property
+    def yaml(self):
+        # lazy import to avoid adding the dependency package wide
+        import yaml
+
+        # yaml doesnt provide a dumps function
+        def dumps(what, *args, **kwargs):
+            f = StringIO()
+            yaml.dump(what, f, *args, **kwargs)
+            return f.getvalue()
+        yaml.dumps = dumps
+
+        return Operation.Exporter(yaml, self.to_dict(), default_flow_style=False)
+
+    @property
+    def json(self):
+        return Operation.Exporter(json, self.to_dict(), indent=2)
+
+
+    @classmethod
+    def from_json(cls, string):
+        return cls.dict2operation(json.loads(string))
+
+    @classmethod
+    def from_yaml(cls, string):
+        import yaml
+        return cls.dict2operation(yaml.load(StringIO(string)))
+
 
     @classmethod
     def get_fields(cls):
