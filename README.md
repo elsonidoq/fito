@@ -40,14 +40,16 @@ def f(x, y=1):
 That code is enough to cache the executions of `f` into the file system
 
 You can see more examples here:
-* A [simple execution flow](https://github.com/elsonidoq/fito/blob/master/examples/simple_flow.py): 
+* A [simple execution flow](https://github.com/elsonidoq/fito/blob/master/examples/Simple%20Flow.ipynb): 
 Shows how operations can be used to express entities linked together by their execution
 
-* The [auto caching decorator](https://github.com/elsonidoq/fito/blob/master/examples/auto_caching.py): 
+* The [auto caching decorator](https://github.com/elsonidoq/fito/blob/master/examples/Auto%20Caching.ipynb): 
 Shows how operations joint with data stores can be used for automatic function caching
 
-* The [execution FIFO](https://github.com/elsonidoq/fito/blob/master/examples/expensive_computations.py): 
+* The [execution FIFO](https://github.com/elsonidoq/fito/blob/master/examples/Expensive%20computations.ipynb): 
 Shows how we can leverage on execution cache to avoid recomputing recently executed operations 
+
+* [Managing config files](https://github.com/elsonidoq/fito/blob/master/examples/Handle%20config%20files.ipynb)
 
 # Contributing
 This is my first open source piece of software where I'm commiting myself to mantain for the next year. 
