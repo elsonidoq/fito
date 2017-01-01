@@ -1,5 +1,4 @@
 import json
-from collections import OrderedDict
 
 from StringIO import StringIO
 from fito.operations.utils import recursive_map, is_iterable
@@ -7,12 +6,47 @@ from memoized_property import memoized_property
 
 # it's a constant that is different from every other object
 _no_default = object()
+import warnings
+
+try:
+    from bson import json_util
+    from json import dumps, dump, load, loads
+
+
+    def json_dumps(*args, **kwargs):
+        kwargs['default'] = json_util.default
+        return dumps(*args, **kwargs)
+
+
+    def json_dump(*args, **kwargs):
+        kwargs['object_hook'] = json_util.object_hook
+        return dump(something, f, default=json_util.default)
+
+
+    def json_loads(*args, **kwargs):
+        kwargs['object_hook'] = json_util.object_hook
+        return loads(*args, **kwargs)
+
+
+    def json_load(*args, **kwargs):
+        kwargs['object_hook'] = json_util.object_hook
+        return load(*args, **kwargs)
+
+
+    json.dump = json_dump
+    json.dumps = json_dumps
+    json.load = json_load
+    json.loads = json_loads
+
+except ImportError:
+    warnings.warn("Couldnt import json_util from bson, won't be able to handle datetime")
 
 
 class Field(object):
     """
     Base class for field definition on an :py:class:`Operation`
     """
+
     def __init__(self, pos=None, default=_no_default):
         self.default = default
         self.pos = pos
