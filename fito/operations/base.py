@@ -19,7 +19,7 @@ try:
 
 
     def json_dump(*args, **kwargs):
-        kwargs['object_hook'] = json_util.object_hook
+        kwargs['default'] = json_util.object_hook
         return dump(*args, **kwargs)
 
 
