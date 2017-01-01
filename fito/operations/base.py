@@ -154,10 +154,10 @@ class Operation(object):
 
         if len(kwargs) > len(fields):
             raise ValueError("Class %s does not take the following arguments: %s" % (
-            type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
+                type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
         elif len(kwargs) < len(fields):
             raise ValueError("Missing arguments for class %s: %s" % (
-            type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
+                type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
 
         for attr, attr_type in fields.iteritems():
             assert not isinstance(attr_type, OperationField) or isinstance(kwargs[attr],
@@ -241,6 +241,7 @@ class Operation(object):
             f = StringIO()
             yaml.dump(what, f, *args, **kwargs)
             return f.getvalue()
+
         yaml.dumps = dumps
 
         return Operation.Exporter(yaml, self.to_dict(), default_flow_style=False)
@@ -248,7 +249,6 @@ class Operation(object):
     @property
     def json(self):
         return Operation.Exporter(json, self.to_dict(), indent=2)
-
 
     @classmethod
     def from_json(cls, string):
@@ -258,7 +258,6 @@ class Operation(object):
     def from_yaml(cls, string):
         import yaml
         return cls.dict2operation(yaml.load(StringIO(string)))
-
 
     @classmethod
     def get_fields(cls):
@@ -371,4 +370,3 @@ class GetOperation(Operation):
 
     def _apply(self, data_store):
         return data_store.get(self.name)
-
