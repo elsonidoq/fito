@@ -20,7 +20,7 @@ try:
 
     def json_dump(*args, **kwargs):
         kwargs['object_hook'] = json_util.object_hook
-        return dump(something, f, default=json_util.default)
+        return dump(*args, **kwargs)
 
 
     def json_loads(*args, **kwargs):
