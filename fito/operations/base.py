@@ -153,15 +153,19 @@ class Operation(object):
                 kwargs[attr] = attr_type.default
 
         if len(kwargs) > len(fields):
-            raise ValueError("Class %s does not take the following arguments: %s" % (
+            raise InvalidOperationInstance("Class %s does not take the following arguments: %s" % (
                 type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
         elif len(kwargs) < len(fields):
-            raise ValueError("Missing arguments for class %s: %s" % (
+            raise InvalidOperationInstance("Missing arguments for class %s: %s" % (
                 type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
 
         for attr, attr_type in fields.iteritems():
-            assert not isinstance(attr_type, OperationField) or isinstance(kwargs[attr],
-                                                                           Operation), "Parameter %s should be an Operation" % attr
+            if isinstance(attr_type, OperationField) and not isinstance(kwargs.get(attr), Operation):
+                raise InvalidOperationInstance("Parameter %s should be an Operation" % attr)
+
+        for attr in kwargs:
+            if attr not in fields:
+                raise InvalidOperationInstance("Received extra parameter {}".format(attr))
 
         for attr, attr_type in kwargs.iteritems():
             setattr(self, attr, attr_type)
