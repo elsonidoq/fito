@@ -21,6 +21,7 @@ class OperationA(Operation):
 
 class AnotherOperation(Operation): pass
 
+
 class OperationB(Operation):
     operation_a = OperationField(base_type=OperationA)
 
@@ -180,5 +181,6 @@ class TestOperation(unittest.TestCase):
             self.assertRaises(InvalidOperationInstance, op, 1)
             op(self.instances[0])._apply(None)
 
-
-
+    def test_type2operation_class(self):
+        assert Operation == Operation.type2operation_class('fito:Operation')
+        assert Operation == Operation.type2operation_class('fito.operations.base:Operation')
