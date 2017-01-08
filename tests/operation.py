@@ -5,11 +5,8 @@ from random import Random
 
 import re
 
-from fito import Operation
-from fito import OperationField
-from fito import PrimitiveField
-from fito import as_operation
-from fito.operations.base import OperationCollection, InvalidOperationInstance
+from fito import Operation, OperationField, PrimitiveField, as_operation
+from fito.operations.base import OperationCollection, InvalidOperationInstance, BaseOperationField
 from fito.operations.utils import general_append
 from fito.operations import base as operations_base
 
@@ -22,8 +19,10 @@ class OperationA(Operation):
         return "A(field1={}, field2={})".format(self.field1, self.field2)
 
 
+class AnotherOperation(Operation): pass
+
 class OperationB(Operation):
-    operation_a = OperationField()
+    operation_a = OperationField(base_type=OperationA)
 
     def __repr__(self):
         return "B(operation_a={})".format(self.operation_a)
@@ -96,6 +95,9 @@ class TestOperation(unittest.TestCase):
             lambda: OperationA(0, 1, 2),
             lambda: OperationA(field1=1, field2=2, field3=3),
 
+            # base_type
+            lambda: OperationB(operation_a=AnotherOperation()),
+
             # this field does not exist
             lambda: OperationA(param=0),
 
@@ -146,9 +148,9 @@ class TestOperation(unittest.TestCase):
                 if isinstance(field_spec, PrimitiveField):
                     op_dict[field_name] = replace_val = 1
                 else:
-                    self.assertRaises(RuntimeError, op.replace, **{field_name: 1})
-                    if isinstance(field_spec, OperationField):
-                        replace_val = Operation()
+                    self.assertRaises(InvalidOperationInstance, op.replace, **{field_name: 1})
+                    if isinstance(field_spec, BaseOperationField):
+                        replace_val = [e for e in self.instances if field_spec.check_valid_value(e)][0]
                         op_dict[field_name] = replace_val.to_dict()
                     else:
                         replace_val = [Operation()]
