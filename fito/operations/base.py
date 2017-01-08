@@ -153,15 +153,19 @@ class Operation(object):
                 kwargs[attr] = attr_type.default
 
         if len(kwargs) > len(fields):
-            raise ValueError("Class %s does not take the following arguments: %s" % (
+            raise InvalidOperationInstance("Class %s does not take the following arguments: %s" % (
                 type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
         elif len(kwargs) < len(fields):
-            raise ValueError("Missing arguments for class %s: %s" % (
+            raise InvalidOperationInstance("Missing arguments for class %s: %s" % (
                 type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
 
         for attr, attr_type in fields.iteritems():
-            assert not isinstance(attr_type, OperationField) or isinstance(kwargs[attr],
-                                                                           Operation), "Parameter %s should be an Operation" % attr
+            if isinstance(attr_type, OperationField) and not isinstance(kwargs.get(attr), Operation):
+                raise InvalidOperationInstance("Parameter %s should be an Operation" % attr)
+
+        for attr in kwargs:
+            if attr not in fields:
+                raise InvalidOperationInstance("Received extra parameter {}".format(attr))
 
         for attr, attr_type in kwargs.iteritems():
             setattr(self, attr, attr_type)
@@ -178,8 +182,22 @@ class Operation(object):
     def replace(self, **kwargs):
         res = self.copy()
         for attr, val in kwargs.iteritems():
-            assert hasattr(self, attr)
+            field_spec = self.get_field_spec(attr)
+
+            if isinstance(field_spec, OperationField) and not isinstance(val, Operation):
+                raise RuntimeError("Field {} should be an Operation, but replace received {}".format(attr, val))
+
+            if isinstance(field_spec, OperationCollection) and (
+                        not is_iterable(val) or any([not isinstance(e, Operation) for e in val])
+            ):
+                raise RuntimeError("Field {} should be an OperationCollection, but replace received {}".format(attr, val))
             setattr(res, attr, val)
+        return res
+
+    @classmethod
+    def get_field_spec(cls, field_name):
+        res = getattr(cls, field_name)
+        assert isinstance(res, Field)
         return res
 
     def get_suboperations(self):
