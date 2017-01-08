@@ -1,7 +1,10 @@
 import json
 
 from StringIO import StringIO
-from fito.operations.utils import recursive_map, is_iterable
+from datetime import datetime
+from functools import total_ordering
+
+from fito.operations.utils import recursive_map, is_iterable, general_iterator
 from memoized_property import memoized_property
 
 # it's a constant that is different from every other object
@@ -47,15 +50,16 @@ class Field(object):
     Base class for field definition on an :py:class:`Operation`
     """
 
-    def __init__(self, pos=None, default=_no_default):
+    def __init__(self, pos=None, default=_no_default, *args, **kwargs):
         self.default = default
         self.pos = pos
 
+    @property
+    def allowed_types(self):
+        raise NotImplementedError()
 
-class OperationField(Field):
-    """
-    Specifies a Field whose value will be an Operation
-    """
+    def check_valid_value(self, value):
+        return any([isinstance(value, t) for t in self.allowed_types])
 
 
 class PrimitiveField(Field):
@@ -63,11 +67,109 @@ class PrimitiveField(Field):
     Specifies a Field whose value is going to be a python object
     """
 
+    def check_valid_value(self, value):
+        return True
+
+
+class CollectionField(PrimitiveField):
+    def __len__(self): return
+
+    def __getitem__(self, _): return
+
+    def __setitem__(self, _, __): return
+
+    def __delitem__(self, _): return
+
+    def __reversed__(self): return
+
+    def __contains__(self, _): return
+
+    def __setslice__(self, _, __, ___): return
+
+    def __delslice__(self, _, __): return
+
+    @property
+    def allowed_types(self):
+        return list, dict, tuple
+
+
+@total_ordering
+class NumericField(PrimitiveField):
+    def __lt__(self, _): return
+
+    def __add__(self, _): return
+
+    def __sub__(self, other): return
+
+    def __mul__(self, other): return
+
+    def __floordiv__(self, other): return
+
+    def __mod__(self, other): return
+
+    def __divmod__(self, other): return
+
+    def __pow__(self, _, modulo=None): return
+
+    def __lshift__(self, other): return
+
+    def __rshift__(self, other): return
+
+    def __and__(self, other): return
+
+    def __xor__(self, other): return
+
+    def __or__(self, other): return
+
+    @property
+    def allowed_types(self):
+        return int, float
+
+
+class BaseOperationField(Field):
+    """
+    Specifies a Field whose value will be an Operation
+    """
+
+    def __init__(self, pos=None, default=_no_default, base_type=None, *args, **kwargs):
+        super(BaseOperationField, self).__init__(pos=pos, default=default, *args, **kwargs)
+        self.base_type = base_type
+
+    @property
+    def allowed_types(self):
+        return [Operation if self.base_type is None else self.base_type]
+
+
+def OperationField(pos=None, default=_no_default, base_type=None):
+    if base_type is not None:
+        assert issubclass(base_type, Operation)
+        return_type = type(
+            'OperationField{}'.format(base_type.__name__),
+            (BaseOperationField, base_type),
+            {}
+        )
+    else:
+        return_type = BaseOperationField
+
+    return return_type(pos=pos, default=default, base_type=base_type)
+
 
 class OperationCollection(Field):
     """
     Specifies a Field whose value is going to be a collection of operations
     """
+
+    @property
+    def allowed_types(self):
+        return list, dict, tuple
+
+    def check_valid_value(self, value):
+        if not is_iterable(value): return False
+
+        for k, v in general_iterator(value):
+            if not isinstance(v, Operation): return False
+
+        return True
 
 
 class OperationMeta(type):
@@ -160,8 +262,12 @@ class Operation(object):
                 type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
 
         for attr, attr_type in fields.iteritems():
-            if isinstance(attr_type, OperationField) and not isinstance(kwargs.get(attr), Operation):
-                raise InvalidOperationInstance("Parameter %s should be an Operation" % attr)
+            val = kwargs.get(attr)
+            if val is None: continue
+            if not attr_type.check_valid_value(val):
+                raise InvalidOperationInstance(
+                    "Invalid value for parameter {}. Received {}, expected {}".format(attr, val, attr_type.allowed_types)
+                )
 
         for attr in kwargs:
             if attr not in fields:
@@ -184,13 +290,11 @@ class Operation(object):
         for attr, val in kwargs.iteritems():
             field_spec = self.get_field_spec(attr)
 
-            if isinstance(field_spec, OperationField) and not isinstance(val, Operation):
-                raise RuntimeError("Field {} should be an Operation, but replace received {}".format(attr, val))
+            if not field_spec.check_valid_value(val):
+                raise InvalidOperationInstance(
+                    "Invalid value for field {}. Received {}, expected {}".format(attr, val, field_spec.allowed_types)
+                )
 
-            if isinstance(field_spec, OperationCollection) and (
-                        not is_iterable(val) or any([not isinstance(e, Operation) for e in val])
-            ):
-                raise RuntimeError("Field {} should be an OperationCollection, but replace received {}".format(attr, val))
             setattr(res, attr, val)
         return res
 
@@ -203,7 +307,7 @@ class Operation(object):
     def get_suboperations(self):
         res = {}
         for attr, attr_type in type(self).get_fields():
-            if isinstance(attr_type, OperationField):
+            if isinstance(attr_type, BaseOperationField):
                 res[attr] = getattr(self, attr)
         return res
 
@@ -228,7 +332,7 @@ class Operation(object):
         for attr, attr_type in type(self).get_fields():
             if isinstance(attr_type, PrimitiveField):
                 res[attr] = getattr(self, attr)
-            elif isinstance(attr_type, OperationField):
+            elif isinstance(attr_type, BaseOperationField):
                 res[attr] = getattr(self, attr).to_dict()
             elif isinstance(attr_type, OperationCollection):
                 def f(obj):
@@ -281,7 +385,7 @@ class Operation(object):
     def get_fields(cls):
         for k in dir(cls):
             v = getattr(cls, k)
-            if isinstance(v, OperationField) or isinstance(v, PrimitiveField) or isinstance(v, OperationCollection):
+            if isinstance(v, BaseOperationField) or isinstance(v, PrimitiveField) or isinstance(v, OperationCollection):
                 yield k, v
 
     @classmethod
@@ -319,7 +423,7 @@ class Operation(object):
 
         res = set()
         for k, field_type in type(self).get_fields():
-            if not isinstance(field_type, OperationField): continue
+            if not isinstance(field_type, BaseOperationField): continue
 
             v = getattr(self, k)
             res.update(v.involved_operations())
@@ -342,7 +446,7 @@ class Operation(object):
         kwargs = kwargs.copy()
         kwargs.pop('type')
         for attr, attr_type in cls.get_fields():
-            if isinstance(attr_type, OperationField):
+            if isinstance(attr_type, BaseOperationField):
                 kwargs[attr] = Operation.dict2operation(kwargs[attr])
             if isinstance(attr_type, OperationCollection):
                 def f(obj):
@@ -384,7 +488,7 @@ class Operation(object):
 
 
 class GetOperation(Operation):
-    name = PrimitiveField(0)
+    name = PrimitiveField(0, base_type=basestring)
 
     def _apply(self, data_store):
         return data_store.get(self.name)
