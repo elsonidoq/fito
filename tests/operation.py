@@ -6,20 +6,23 @@ from random import Random
 import re
 
 from fito import Operation, OperationField, PrimitiveField, as_operation
-from fito.operations.base import OperationCollection, InvalidOperationInstance, BaseOperationField
+from fito.operations.base import OperationCollection, InvalidOperationInstance, BaseOperationField, NumericField, \
+    CollectionField
 from fito.operations.utils import general_append
 from fito.operations import base as operations_base
 
 
 class OperationA(Operation):
-    field1 = PrimitiveField(0)
+    field1 = NumericField(0)
     field2 = PrimitiveField(1, default=None)
 
     def __repr__(self):
         return "A(field1={}, field2={})".format(self.field1, self.field2)
 
 
-class AnotherOperation(Operation): pass
+class AnotherOperation(Operation):
+    l = CollectionField(0)
+
 
 class OperationB(Operation):
     operation_a = OperationField(base_type=OperationA)
@@ -39,7 +42,7 @@ class TestOperation(unittest.TestCase):
     def setUp(self):
         self.instances = [
             OperationA(0),
-            OperationA(datetime(2017, 1, 1), True),
+            OperationA(1, datetime(2017, 1, 1)),
             OperationB(operation_a=OperationA(0)),
             OperationB(operation_a=OperationA(1)),
         ]
@@ -95,8 +98,11 @@ class TestOperation(unittest.TestCase):
             lambda: OperationA(0, 1, 2),
             lambda: OperationA(field1=1, field2=2, field3=3),
 
+            # colleciton field
+            lambda: AnotherOperation(1),
+
             # base_type
-            lambda: OperationB(operation_a=AnotherOperation()),
+            lambda: OperationB(operation_a=AnotherOperation([])),
 
             # this field does not exist
             lambda: OperationA(param=0),
@@ -113,6 +119,7 @@ class TestOperation(unittest.TestCase):
         ]
 
         for i, invalid_op in enumerate(invalid_ops):
+            print invalid_op
             self.assertRaises(InvalidOperationInstance, invalid_op)
 
     def test_key_caching(self):
@@ -179,6 +186,3 @@ class TestOperation(unittest.TestCase):
             assert issubclass(op, Operation)
             self.assertRaises(InvalidOperationInstance, op, 1)
             op(self.instances[0])._apply(None)
-
-
-
