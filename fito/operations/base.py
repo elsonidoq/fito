@@ -67,8 +67,9 @@ class PrimitiveField(Field):
     Specifies a Field whose value is going to be a python object
     """
 
-    def check_valid_value(self, value):
-        return True
+    @property
+    def allowed_types(self):
+        return [object]
 
 
 class CollectionField(PrimitiveField):
@@ -345,7 +346,6 @@ class Operation(object):
                     else:
                         return obj
 
-                val = getattr(self, attr)
                 res[attr] = recursive_map(val, f)
 
         return res
