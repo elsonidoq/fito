@@ -182,8 +182,22 @@ class Operation(object):
     def replace(self, **kwargs):
         res = self.copy()
         for attr, val in kwargs.iteritems():
-            assert hasattr(self, attr)
+            field_spec = self.get_field_spec(attr)
+
+            if isinstance(field_spec, OperationField) and not isinstance(val, Operation):
+                raise RuntimeError("Field {} should be an Operation, but replace received {}".format(attr, val))
+
+            if isinstance(field_spec, OperationCollection) and (
+                        not is_iterable(val) or any([not isinstance(e, Operation) for e in val])
+            ):
+                raise RuntimeError("Field {} should be an OperationCollection, but replace received {}".format(attr, val))
             setattr(res, attr, val)
+        return res
+
+    @classmethod
+    def get_field_spec(cls, field_name):
+        res = getattr(cls, field_name)
+        assert isinstance(res, Field)
         return res
 
     def get_suboperations(self):

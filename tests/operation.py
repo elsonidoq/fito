@@ -4,9 +4,11 @@ from datetime import datetime
 from random import Random
 
 import re
+
 from fito import Operation
 from fito import OperationField
 from fito import PrimitiveField
+from fito import as_operation
 from fito.operations.base import OperationCollection, InvalidOperationInstance
 from fito.operations.utils import general_append
 from fito.operations import base as operations_base
@@ -90,8 +92,9 @@ class TestOperation(unittest.TestCase):
     def test_operation_argspec(self):
         invalid_ops = [
             # OperationA has 1 arguments
-            lambda : OperationA(),
+            lambda: OperationA(),
             lambda: OperationA(0, 1, 2),
+            lambda: OperationA(field1=1, field2=2, field3=3),
 
             # this field does not exist
             lambda: OperationA(param=0),
@@ -132,6 +135,48 @@ class TestOperation(unittest.TestCase):
             assert d[op] == i
             assert d[op.dict2operation(op.to_dict())] == i
 
+    def test_copy(self):
+        for op in self.instances:
+            assert op.to_dict() == op.copy().to_dict()
+
+    def test_replace(self):
+        for op in self.instances:
+            for field_name, field_spec in op.get_fields():
+                op_dict = op.to_dict()
+                if isinstance(field_spec, PrimitiveField):
+                    op_dict[field_name] = replace_val = 1
+                else:
+                    self.assertRaises(RuntimeError, op.replace, **{field_name: 1})
+                    if isinstance(field_spec, OperationField):
+                        replace_val = Operation()
+                        op_dict[field_name] = replace_val.to_dict()
+                    else:
+                        replace_val = [Operation()]
+                        op_dict[field_name] = [replace_val[0].to_dict()]
+
+                replaced_op_dict = op.replace(**{field_name: replace_val}).to_dict()
+                assert replaced_op_dict == op_dict
+
+    def test_key(self):
+        for op in self.instances:
+            assert op == Operation.key2operation(op.key)
+
+    def test_as_operation(self):
+        @as_operation(op=OperationField)
+        def f(op, val=1): return val
+
+        class Test(object):
+            @as_operation(method_type='instance', op=OperationField)
+            def op1(self, op, val=1): return 1
+
+            @as_operation(method_type='class', op=OperationField)
+            def op2(cls, op): return 1
+
+        ops = [f, Test().op1, Test.op2]
+        for op in ops:
+            assert issubclass(op, Operation)
+            self.assertRaises(InvalidOperationInstance, op, 1)
+            op(self.instances[0])._apply(None)
 
 
 
