@@ -4,7 +4,7 @@ import inspect
 import os
 
 from fito.operations import Operation
-from fito.operations.base import PrimitiveField, OperationField
+from fito.operations.base import PrimitiveField, BaseOperationField
 
 try:
     import cPickle
@@ -119,7 +119,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         this_args = {}
         for k, v in attrs.iteritems():
             value = getattr(self, k)
-            if isinstance(v, OperationField) and data_store is not None:
+            if isinstance(v, BaseOperationField) and data_store is not None:
                 value = data_store.execute(value)
 
             this_args[k] = value
