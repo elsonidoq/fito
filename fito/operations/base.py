@@ -331,10 +331,14 @@ class Operation(object):
     def to_dict(self):
         res = {'type': type(self).__name__}
         for attr, attr_type in type(self).get_fields():
+            val = getattr(self, attr)
+
             if isinstance(attr_type, PrimitiveField):
-                res[attr] = getattr(self, attr)
+                res[attr] = val
+
             elif isinstance(attr_type, BaseOperationField):
-                res[attr] = getattr(self, attr).to_dict()
+                res[attr] = val if val is None else val.to_dict()
+
             elif isinstance(attr_type, OperationCollection):
                 def f(obj):
                     if isinstance(obj, Operation):
@@ -342,7 +346,6 @@ class Operation(object):
                     else:
                         return obj
 
-                val = getattr(self, attr)
                 res[attr] = recursive_map(val, f)
 
         return res
@@ -402,9 +405,26 @@ class Operation(object):
 
     @staticmethod
     def type2operation_class(operation_type):
-        for cls in Operation._get_all_subclasses():
-            if cls.__name__ == operation_type: return cls
+        """
+        Can be called either by calling Operation.type2operation_class('SomeOperation') or by calling
+        Operation.type2operation_class('some.module:SomeOperation')
 
+        :param operation_type: Either the name of the class, which must be imported before calling this function or the
+        import path spec
+        :return: A subclass of Operation
+        """
+        if ':' in operation_type:
+            full_path, obj_name = operation_type.split(':')
+
+            fromlist = '.'.join(full_path.split('.')[:-1])
+            module = __import__(full_path, fromlist=fromlist)
+
+            cls = getattr(module, obj_name)
+            assert issubclass(cls, Operation), "The provided path does not point to an operation subclass"
+            return cls
+        else:
+            for cls in Operation._get_all_subclasses():
+                if cls.__name__ == operation_type: return cls
     @staticmethod
     def dict2operation(dict):
         cls = Operation.type2operation_class(dict['type'])

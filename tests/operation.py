@@ -119,7 +119,6 @@ class TestOperation(unittest.TestCase):
         ]
 
         for i, invalid_op in enumerate(invalid_ops):
-            print invalid_op
             self.assertRaises(InvalidOperationInstance, invalid_op)
 
     def test_key_caching(self):
@@ -186,3 +185,8 @@ class TestOperation(unittest.TestCase):
             assert issubclass(op, Operation)
             self.assertRaises(InvalidOperationInstance, op, 1)
             op(self.instances[0])._apply(None)
+
+    def test_type2operation_class(self):
+        assert Operation == Operation.type2operation_class('fito:Operation')
+        assert Operation == Operation.type2operation_class('fito.operations.base:Operation')
+
