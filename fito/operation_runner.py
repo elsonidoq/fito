@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 
 class OperationRunner(object):
     def __init__(self, cache_size=0, verbose=False):
@@ -12,16 +14,13 @@ class OperationRunner(object):
         If this data store was configured to use an execute cache, it will be used
         """
         if self.cache is None:
-            return self._execute(operation)
+            return operation.apply(self)
         else:
             res = self.cache.get(operation)
             if res is self.cache.no_result:
-                res = self._execute(operation)
+                res = operation.apply(self)
                 self.cache.set(operation, res)
             return res
-
-    def _execute(self, operation):
-        return operation.apply(self)
 
 
 class FifoCache(object):
@@ -48,9 +47,7 @@ class FifoCache(object):
         return res
 
     def set(self, operation, value):
-        if isinstance(operation, basestring) or operation.is_get:
-            return
-        if len(self.queue) > self.size:
+        if len(self.queue) >= self.size:
             if self.verbose: print "Fifo pop!"
             op, _ = self.queue.popitem(False)
         self.queue[operation] = value
