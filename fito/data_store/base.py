@@ -1,9 +1,8 @@
-from collections import OrderedDict
 from functools import wraps
 
 from fito import Operation
 from fito import PrimitiveField
-from fito.operation_runner import FifoCache, OperationRunner
+from fito.operation_runner import FifoCache
 from fito.operations.decorate import GenericDecorator, operation_from_func
 
 
@@ -24,26 +23,16 @@ class BaseDataStore(object):
 
     """
 
-    def __init__(self, get_cache_size=0, execute_cache_size=0):
+    def __init__(self, get_cache_size=0):
         """
         Instances the data store.
 
-        It provides a FIFO caching option when the results of the operation take time to execute
-        (i.e. the `_apply` method is costly) or the operation takes time to serialize.
-
-        In order to use the execute cache, you have to do `data_store.execute(operation)` instead of
-        `operation.apply(data_store)`
-
         :param get_cache_size: Size of the FIFO cache for serialization
-        :param execute_cache_size: Size of FIFO cache for execution
-
         """
         if get_cache_size > 0:
             self.get_cache = FifoCache(get_cache_size)
         else:
             self.get_cache = None
-
-        self.operations_runner = OperationRunner(execute_cache_size)
 
     def get(self, name_or_operation):
         """
@@ -118,13 +107,6 @@ class BaseDataStore(object):
         else:
             key = operation.key
         return key
-
-    def execute(self, operation):
-        """
-        Executes an operation using this data store as input
-        If this data store was configured to use an execute cache, it will be used
-        """
-        self.operations_runner.execute(operation)
 
     def cache(self, **kwargs):
         """
