@@ -5,21 +5,23 @@
 
 # Functionality
 
-Fito is a package that works around the concept of `Operations` and `DataStores`.
+Fito is a package that works around the concept of four concepts:
+First there are `Specs`. A `Spec` specifies an object.
+It provides the capability of specifiyng things, like models or data sources.
+Also an `Spec` can be combined with another `Spec` which allows them to specify
+things like experiments that combine both models and data sources.
+Specs are both **json-serializable** and **hasheable**.
+  
+An `Operation` is an spec that computs something out of it. Can be though
+as a [currified function](https://en.wikipedia.org/wiki/Currying#Illustration)
 
-The simplest way of thinking it is that a subclass of `Operation` defines
-a function, and an instance defines that function being also binded 
-to it's arguments. 
-
-If the types of the function inputs are **json-serializable**, 
-then the `Operation` is as well. 
-Not only that, but operations are also **hashable**.
-
-That leads us to the `DataStore`, whose capability is to index an `Operation`.
+That leads us to the `DataStore`, whose capability is to index an `Spec`.
 There are two implementations, one that uses the file system and 
 anotherone that uses [MongoDB](https://www.mongodb.com/).
 
-Extra features:
+One nice combination of having this abstraction, is that we can do automatic caching.
+That can be performed with both of these decorators
+
 * `as_operation` Decorator that turns any function into a subclass of `Operation`
 * `DataStore.cache`: Decorator to turn automatic caching on any function. 
 Creates an operation out of the function and the data store is used for caching the results. 
@@ -53,5 +55,7 @@ Shows how we can leverage on execution cache to avoid recomputing recently execu
 
 # Contributing
 This is my first open source piece of software where I'm commiting myself to mantain for the next year. 
+
 Let [me](https://twitter.com/ideasrapidas) know if you happen to use it! 
+
 And please, do not hesitate on sending pull requests :D
