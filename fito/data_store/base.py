@@ -2,7 +2,7 @@ from functools import wraps
 
 from fito import Operation
 from fito import PrimitiveField
-from fito.operation_runner import FifoCache
+from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import GenericDecorator, operation_from_func
 
 
@@ -23,7 +23,7 @@ class BaseDataStore(object):
 
     """
 
-    def __init__(self, get_cache_size=0):
+    def __init__(self, get_cache_size=0, operation_runner=None):
         """
         Instances the data store.
 
@@ -33,6 +33,8 @@ class BaseDataStore(object):
             self.get_cache = FifoCache(get_cache_size)
         else:
             self.get_cache = None
+
+        self.operation_runner = operation_runner or OperationRunner()
 
     def get(self, name_or_operation):
         """
@@ -84,7 +86,7 @@ class BaseDataStore(object):
         if op in self:
             res = self[op]
         else:
-            res = self.execute(op)
+            res = self.operation_runner.execute(op)
         return res
 
     def __contains__(self, name_or_operation):
@@ -130,7 +132,7 @@ class BaseDataStore(object):
         def autosaved(*args, **kwargs):
             operation = OperationClass(*args, **kwargs)
             if operation not in self:
-                res = self.execute(operation)
+                res = self.operation_runner.execute(operation)
                 self[operation] = res
             else:
                 res = self.get(operation)
