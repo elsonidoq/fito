@@ -1,9 +1,18 @@
 from collections import OrderedDict
 from functools import wraps
 
+from fito import Operation
+from fito import PrimitiveField
 from fito.operation_runner import FifoCache, OperationRunner
-from fito.operations import GetOperation, Operation
 from fito.operations.decorate import GenericDecorator, operation_from_func
+
+
+class GetOperation(Operation):
+    name = PrimitiveField(0, base_type=basestring)
+    input = PrimitiveField(1)
+
+    def apply(self, runner):
+        return self.input.get(self.name)
 
 
 class BaseDataStore(object):
