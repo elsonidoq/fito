@@ -5,12 +5,12 @@ from setuptools import setup, find_packages
 setup(
     name='fito',
     packages=find_packages(),
-    version='0.2',
+    version='0.2.3',
     description='fito',
     author='Pablo Zivic & Bruno Parrino',
     author_email='elsonidoq@gmail.com',
     url='https://github.com/elsonidoq/fito',
-    download_url='https://github.com/elsonidoq/fito/tarball/0.2',
+    download_url='https://github.com/elsonidoq/fito/tarball/0.2.3',
     zip_safe=False,
     install_requires=[
         'mmh3',

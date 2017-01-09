@@ -1,3 +1,6 @@
+"""
+Helper functions that allows you to receive and handle collections in a uniform way
+"""
 def general_new(iterable):
     return type(iterable)()
 
@@ -30,6 +33,18 @@ def is_iterable(obj):
 
 
 def recursive_map(iterable, callable, recursion_condition=None):
+    """
+    Provides a map that works on lists, dicts and tuples, and is recursive into sub collections (default behaviour)
+
+    :param recursion_condition: Predicate specifying on which cases the function should recurse.
+    Default: :py:func:`is_iterable`
+
+    :return: A similar structure to the given iterable where :param callable: was applied
+
+    Example:
+    >>> recursive_map([[1], {"some": 3, "stuff":10}], lambda x:x+1)
+    >>> [[2], {'some': 4, 'stuff': 11}]
+    """
     recursion_condition = recursion_condition or is_iterable
     res = general_new(iterable)
     for k, v in general_iterator(iterable):
