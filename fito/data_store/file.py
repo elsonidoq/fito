@@ -1,71 +1,11 @@
-from time import time, sleep
-import json
 import mmh3
 import os
 import pickle
 import shutil
+from time import time, sleep
 
+from fito import Spec
 from fito.data_store.base import BaseDataStore, Get
-from fito  import Spec
-
-
-class Serializer(object):
-    @classmethod
-    def save(cls, obj, subdir): raise NotImplemented()
-
-    @classmethod
-    def load(cls, subdir): raise NotImplemented()
-
-    @classmethod
-    def exists(cls, subdir): raise NotImplemented()
-
-    @classmethod
-    def iter_subclasses(cls):
-        queue = cls.__subclasses__()
-        while len(queue) > 0:
-            e = queue.pop()
-            l = e.__subclasses__()
-            yield e
-            queue.extend(l)
-
-
-class SingleFileSerializer(Serializer):
-    @classmethod
-    def get_fname(cls, subdir): raise NotImplemented()
-
-    @classmethod
-    def exists(cls, subdir):
-        return os.path.exists(cls.get_fname(subdir))
-
-class PickleSerializer(SingleFileSerializer):
-    @classmethod
-    def get_fname(cls, subdir):
-        return os.path.join(subdir, 'obj.pkl')
-
-    @classmethod
-    def save(cls, obj, subdir):
-        with open(cls.get_fname(subdir), 'w') as f:
-            pickle.dump(obj, f, 2)
-
-    @classmethod
-    def load(cls, subdir):
-        with open(cls.get_fname(subdir)) as f:
-            return pickle.load(f)
-
-class RawSerializer(SingleFileSerializer):
-    @classmethod
-    def get_fname(cls, subdir):
-        return os.path.join(subdir, 'obj.raw')
-
-    @classmethod
-    def save(cls, obj, subdir):
-        with open(cls.get_fname(subdir), 'w') as f:
-            f.write(obj)
-
-    @classmethod
-    def load(cls, subdir):
-        with open(cls.get_fname(subdir)) as f:
-            return f.read()
 
 
 class FileDataStore(BaseDataStore):
@@ -78,31 +18,23 @@ class FileDataStore(BaseDataStore):
         conf_file = os.path.join(path, 'conf.json')
         if os.path.exists(conf_file):
             with open(conf_file) as f:
-                conf = json.load(f)
+                conf_serializer = Spec.from_yaml(f.read())
 
-            if serializer is not None:
-                if conf['serializer'] != serializer.__name__:
-                    raise ValueError(
-                        'This store was initialized with {} Serializer, but now received {}'.format(conf['serializer'],
-                                                                                                    serializer.__name__)
-                    )
+            if serializer is None:
+                serializer = conf_serializer
             else:
-                for cls in Serializer.iter_subclasses():
-                    if cls.__name__ == conf['serializer']:
-                        serializer = cls
-                        break
-                else:
-                    raise ValueError('Could not find serializer {}'.format(conf['serializer']))
+                if conf_serializer != serializer:
+                    raise RuntimeError(
+                        'This store was initialized with {} Serializer, but now received {}'.format(
+                            conf_serializer,
+                            serializer)
+                    )
 
         else:
-            serializer = serializer or PickleSerializer
-            this_conf = {
-                # this should include the path...
-                'serializer': serializer.__name__
-            }
+            serializer = serializer or PickleSerializer()
 
             with open(conf_file, 'w') as f:
-                json.dump(this_conf, f)
+                serializer.yaml.dump(f)
 
         self.serializer = serializer
 
@@ -125,7 +57,7 @@ class FileDataStore(BaseDataStore):
 
             try:
                 op = Spec.key2spec(key)
-            except ValueError, e: # there might be a key that is not a valid json
+            except ValueError, e:  # there might be a key that is not a valid json
                 if e.args[0] == 'Unknown spec type': raise e
                 continue
 
@@ -176,15 +108,19 @@ class FileDataStore(BaseDataStore):
 
     def _get(self, name_or_spec):
         subdir = self._get_subdir(name_or_spec)
-        try: return self.serializer.load(subdir)
-        except: raise KeyError('{} not found'.format(name_or_spec))
+        try:
+            return self.serializer.load(subdir)
+        except:
+            raise KeyError('{} not found'.format(name_or_spec))
 
     def save(self, name_or_spec, series):
         dir = self._get_dir(name_or_spec)
         # this accounts for both checking if it not exists, and the fact that there might
         # be another process doing the same thing
-        try: os.makedirs(dir)
-        except OSError: pass
+        try:
+            os.makedirs(dir)
+        except OSError:
+            pass
         op_key = self._get_key(name_or_spec)
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
@@ -232,3 +168,44 @@ class FileDataStore(BaseDataStore):
             return name_or_spec
         else:
             raise ValueError("invalid argument")
+
+
+class Serializer(Spec):
+    def save(self, obj, subdir): raise NotImplemented()
+
+    def load(self, subdir): raise NotImplemented()
+
+    def exists(self, subdir): raise NotImplemented()
+
+
+class SingleFileSerializer(Serializer):
+    def get_fname(self, subdir): raise NotImplemented()
+
+    def exists(self, subdir):
+        return os.path.exists(self.get_fname(subdir))
+
+
+class PickleSerializer(SingleFileSerializer):
+    def get_fname(self, subdir):
+        return os.path.join(subdir, 'obj.pkl')
+
+    def save(self, obj, subdir):
+        with open(self.get_fname(subdir), 'w') as f:
+            pickle.dump(obj, f, 2)
+
+    def load(self, subdir):
+        with open(self.get_fname(subdir)) as f:
+            return pickle.load(f)
+
+
+class RawSerializer(SingleFileSerializer):
+    def get_fname(self, subdir):
+        return os.path.join(subdir, 'obj.raw')
+
+    def save(self, obj, subdir):
+        with open(self.get_fname(subdir), 'w') as f:
+            f.write(obj)
+
+    def load(self, subdir):
+        with open(self.get_fname(subdir)) as f:
+            return f.read()
