@@ -196,6 +196,7 @@ class InvalidSpecInstance(Exception):
     pass
 
 
+@total_ordering
 class Spec(object):
     """
     Base class for any spec.
@@ -281,7 +282,6 @@ class Spec(object):
 
         for attr, attr_type in kwargs.iteritems():
             setattr(self, attr, attr_type)
-
 
     def copy(self):
         return type(self)._from_dict(self.to_dict())
@@ -443,7 +443,13 @@ class Spec(object):
         return hash(self.key)
 
     def __eq__(self, other):
-        return type(other).__name__ == type(self).__name__ and self.key == other.key
+        return self.key == other.key
+
+    def __lt__(self, other):
+        return self.key < other.key
+
+    def __ne__(self, other):
+        return self.key != other.key
 
     @classmethod
     def _from_dict(cls, kwargs):
