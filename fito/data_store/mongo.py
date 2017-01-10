@@ -3,7 +3,7 @@ from random import random
 
 import pymongo
 from fito.data_store.base import BaseDataStore
-from fito.operations import Operation
+from fito import Spec
 from gridfs import GridFS
 from pymongo.collection import Collection
 from pymongo.errors import DuplicateKeyError

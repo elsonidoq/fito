@@ -5,8 +5,8 @@ import os
 import pickle
 import shutil
 
-from fito.data_store.base import BaseDataStore
-from fito.operations.base import Operation, GetOperation
+from fito.data_store.base import BaseDataStore, Get
+from fito  import Spec
 
 
 class Serializer(object):
@@ -69,8 +69,8 @@ class RawSerializer(SingleFileSerializer):
 
 
 class FileDataStore(BaseDataStore):
-    def __init__(self, path, get_cache_size=0, execute_cache_size=0, split_keys=True, serializer=None):
-        super(FileDataStore, self).__init__(get_cache_size=get_cache_size, execute_cache_size=execute_cache_size)
+    def __init__(self, path, get_cache_size=0, operation_runner=None, split_keys=True, serializer=None):
+        super(FileDataStore, self).__init__(get_cache_size=get_cache_size, operation_runner=operation_runner)
         self.split_keys = split_keys
         self.path = path
         if not os.path.exists(path): os.makedirs(path)
@@ -124,9 +124,9 @@ class FileDataStore(BaseDataStore):
                 key = f.read()
 
             try:
-                op = Operation.key2operation(key)
+                op = Spec.key2spec(key)
             except ValueError, e: # there might be a key that is not a valid json
-                if e.args[0] == 'Unknown operation type': raise e
+                if e.args[0] == 'Unknown spec type': raise e
                 continue
 
             yield op
@@ -139,8 +139,8 @@ class FileDataStore(BaseDataStore):
                 # TODO: check whether the file exists or not
                 continue
 
-    def _get_dir(self, series_name_or_operation):
-        key = self._get_key(series_name_or_operation)
+    def _get_dir(self, name_or_spec):
+        key = self._get_key(name_or_spec)
         h = str(mmh3.hash(key))
         if self.split_keys:
             fname = os.path.join(self.path, h[:3], h[3:6], h[6:])
@@ -148,11 +148,11 @@ class FileDataStore(BaseDataStore):
             fname = os.path.join(self.path, h)
         return fname
 
-    def _get_subdir(self, series_name_or_operation):
-        dir = self._get_dir(series_name_or_operation)
-        if not os.path.exists(dir): raise KeyError("Operation not found")
+    def _get_subdir(self, name_or_spec):
+        dir = self._get_dir(name_or_spec)
+        if not os.path.exists(dir): raise KeyError("Spec not found")
 
-        op_key = self._get_key(series_name_or_operation)
+        op_key = self._get_key(name_or_spec)
         subdirs = os.listdir(dir)
         for subdir in subdirs:
             subdir = os.path.join(dir, subdir)
@@ -170,22 +170,22 @@ class FileDataStore(BaseDataStore):
                     key = f.read()
             if key == op_key and self.serializer.exists(subdir): break
         else:
-            raise KeyError("Operation not found")
+            raise KeyError("Spec not found")
 
         return subdir
 
-    def _get(self, series_name_or_operation):
-        subdir = self._get_subdir(series_name_or_operation)
+    def _get(self, name_or_spec):
+        subdir = self._get_subdir(name_or_spec)
         try: return self.serializer.load(subdir)
-        except: raise KeyError('{} not found'.format(series_name_or_operation))
+        except: raise KeyError('{} not found'.format(name_or_spec))
 
-    def save(self, series_name_or_operation, series):
-        dir = self._get_dir(series_name_or_operation)
+    def save(self, name_or_spec, series):
+        dir = self._get_dir(name_or_spec)
         # this accounts for both checking if it not exists, and the fact that there might
         # be another process doing the same thing
         try: os.makedirs(dir)
         except OSError: pass
-        op_key = self._get_key(series_name_or_operation)
+        op_key = self._get_key(name_or_spec)
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
             key_fname = os.path.join(subdir, 'key')
@@ -213,22 +213,22 @@ class FileDataStore(BaseDataStore):
         self.serializer.save(series, subdir)
 
     @classmethod
-    def _get_key(cls, series_name_or_operation):
-        operation = cls._get_operation(series_name_or_operation)
-        return operation.key
+    def _get_key(cls, name_or_spec):
+        spec = cls._get_spec(name_or_spec)
+        return spec.key
 
-    def __contains__(self, series_name_or_operation):
+    def __contains__(self, name_or_spec):
         try:
-            subdir = self._get_subdir(series_name_or_operation)
+            subdir = self._get_subdir(name_or_spec)
             return self.serializer.exists(subdir)
         except KeyError:
             return False
 
     @classmethod
-    def _get_operation(cls, series_name_or_operation):
-        if isinstance(series_name_or_operation, basestring):
-            return GetOperation(name=series_name_or_operation)
-        elif isinstance(series_name_or_operation, Operation):
-            return series_name_or_operation
+    def _get_spec(cls, name_or_spec):
+        if isinstance(name_or_spec, basestring):
+            return Get(name=name_or_spec)
+        elif isinstance(name_or_spec, Spec):
+            return name_or_spec
         else:
             raise ValueError("invalid argument")
