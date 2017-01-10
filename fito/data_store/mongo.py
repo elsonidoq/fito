@@ -141,7 +141,7 @@ class MongoHashMap(BaseDataStore):
             # I do not compare the dictionaries, because when there's a nan involved, the comparision is always false
             if self._dict2spec(doc['spec']) == spec: break
         else:
-            raise ValueError("Spec not found")
+            raise KeyError("Spec not found")
 
         return doc
 
