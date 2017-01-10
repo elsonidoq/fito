@@ -1,12 +1,12 @@
 from functools import wraps
 
-from fito import Operation
+from fito import Spec
 from fito import PrimitiveField
 from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import GenericDecorator, operation_from_func
 
 
-class GetOperation(Operation):
+class Get(Spec):
     name = PrimitiveField(0, base_type=basestring)
     input = PrimitiveField(1)
 
