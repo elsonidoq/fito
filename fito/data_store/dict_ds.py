@@ -14,3 +14,6 @@ class DictDataStore(BaseDataStore):
 
     def _get(self, name_or_operation):
         return self.data.get(name_or_operation)
+
+    def iterkeys(self):
+        return self.data.iterkeys()
