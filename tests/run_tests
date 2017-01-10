@@ -1,0 +1,5 @@
+coverage erase
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest spec
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest operation_runner
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest operation
+coverage html

@@ -1,10 +1,9 @@
 from __future__ import print_function
 
 import inspect
-import os
 
-from fito.operations import Operation
-from fito.operations.base import PrimitiveField, BaseOperationField
+from fito.operations.operation import Operation
+from fito.specs.base import PrimitiveField, BaseSpecField
 
 try:
     import cPickle
@@ -119,14 +118,14 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         this_args = {}
         for k, v in attrs.iteritems():
             value = getattr(self, k)
-            if isinstance(v, BaseOperationField) and data_store is not None:
+            if isinstance(v, BaseSpecField) and data_store is not None:
                 value = data_store.execute(value)
 
             this_args[k] = value
 
         return this_args
 
-    def _apply(self, data_store=None):
+    def apply(self, data_store=None):
         this_args = self.get_this_args(data_store)
         return func_to_execute(**this_args)
 
@@ -138,12 +137,12 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
 
     cls_attrs = attrs.copy()
     cls_attrs['func'] = staticmethod(func_to_execute)
-    cls_attrs['_apply'] = _apply
+    cls_attrs['apply'] = apply
     cls_attrs['__repr__'] = __repr__
     cls_attrs['get_this_args'] = get_this_args
 
     out_name = out_name or to_wrap.__name__
-    cls = Operation.type2operation_class(out_name)
+    cls = Operation.type2spec_class(out_name)
     if cls is None:
         # if the class does not exist, create it
         cls = type(out_name, (out_type,), cls_attrs)
@@ -151,7 +150,5 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         # otherwise update it
         for k, v in cls_attrs.iteritems():
             setattr(cls, k, v)
-
-
 
     return cls
