@@ -36,27 +36,27 @@ class BaseDataStore(object):
 
         self.operation_runner = operation_runner or OperationRunner()
 
-    def get(self, name_or_operation):
+    def get(self, name_or_spec):
         """
         Gets an operation from this data store.
-        If you provide a string, it is assumed to be a `GetOperation`
+        If you provide a string, it is assumed to be a `Get`
         """
         if self.get_cache is None:
-            return self._get(name_or_operation)
+            return self._get(name_or_spec)
         else:
-            res = self.get_cache.get(name_or_operation)
-            if res is None:
-                res = self._get(name_or_operation)
-                self.get_cache.set(name_or_operation, res)
+            res = self.get_cache.get(name_or_spec)
+            if res is FifoCache.no_result:
+                res = self._get(name_or_spec)
+                self.get_cache.set(name_or_spec, res)
             return res
 
-    def _get(self, name_or_operation):
+    def _get(self, name_or_spec):
         """
         Abstract method, actual implementation of the fetch from the data_store
         """
         raise NotImplementedError()
 
-    def save(self, name_or_operation, object):
+    def save(self, name_or_spec, object):
         """
         Actual implementation that saves an object associated with the name or operation
         """
@@ -69,42 +69,42 @@ class BaseDataStore(object):
         """
         raise NotImplementedError()
 
-    def __getitem__(self, name_or_operation):
-        return self.get(name_or_operation)
+    def __getitem__(self, name_or_spec):
+        return self.get(name_or_spec)
 
-    def __setitem__(self, name_or_operation, object):
-        self.save(name_or_operation, object)
+    def __setitem__(self, name_or_spec, object):
+        self.save(name_or_spec, object)
 
-    def get_or_none(self, name_or_operation):
+    def get_or_none(self, name_or_spec):
         try:
-            return self.get(name_or_operation)
+            return self.get(name_or_spec)
         except ValueError:
             return None
 
-    def get_or_execute(self, name_or_operation):
-        op = self._get_operation(name_or_operation)
+    def get_or_execute(self, name_or_spec):
+        op = self._get_spec(name_or_spec)
         if op in self:
             res = self[op]
         else:
             res = self.operation_runner.execute(op)
         return res
 
-    def __contains__(self, name_or_operation):
-        return self.get_or_none(name_or_operation) is not None
+    def __contains__(self, name_or_spec):
+        return self.get_or_none(name_or_spec) is not None
 
     @classmethod
-    def _get_operation(cls, name_or_operation):
-        if isinstance(name_or_operation, basestring):
-            return GetOperation(name=name_or_operation)
-        elif isinstance(name_or_operation, Operation):
-            return name_or_operation
+    def _get_spec(cls, name_or_spec):
+        if isinstance(name_or_spec, basestring):
+            return Get(name=name_or_spec)
+        elif isinstance(name_or_spec, Spec):
+            return name_or_spec
         else:
             raise ValueError("invalid argument")
 
     @classmethod
-    def _get_key(cls, name_or_operation):
-        operation = cls._get_operation(name_or_operation)
-        if isinstance(operation, GetOperation):
+    def _get_key(cls, name_or_spec):
+        operation = cls._get_spec(name_or_spec)
+        if isinstance(operation, Get):
             key = operation.name
         else:
             key = operation.key
@@ -121,13 +121,13 @@ class BaseDataStore(object):
 
     def autosave(self, OperationClass):
         """
-        Creates an automatic cache for a given OperationClass (i.e. a class whose parent is Operation):
+        Creates an automatic cache for a given OperationClass (i.e. a class whose parent is Spec):
 
         The returned function receives the same arguments that `OperationClass` declared, and uses the `self` to save the results
 
-        :param OperationClass: A class whose parent is Operation
+        :param OperationClass: A class whose parent is Spec
         """
-        assert issubclass(OperationClass, Operation)
+        assert issubclass(OperationClass, Spec)
 
         def autosaved(*args, **kwargs):
             operation = OperationClass(*args, **kwargs)
@@ -147,7 +147,7 @@ class AutosavedFunction(GenericDecorator):
         For available arguments see `as_operation` decorator
         """
         self.data_store = kwargs.pop('data_store')
-        self.out_type = kwargs.pop('out_type', Operation)
+        self.out_type = kwargs.pop('out_type', Spec)
         self.out_name = kwargs.pop('out_name', None)
         self.args_specifications = kwargs
         super(AutosavedFunction, self).__init__(**kwargs)
