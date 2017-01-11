@@ -107,26 +107,29 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         if method_type == 'class' and arg == 'cls': continue
 
         if arg in args_specifications:
-            spec = args_specifications[arg]()
+            spec = args_specifications[arg]
+            # It can be either a class, or the instance itself
+            if inspect.isclass(spec) or inspect.isfunction(spec): spec = spec()
+
             spec.pos = len(attrs)
         else:
             spec = PrimitiveField(len(attrs))
         if arg in default_values: spec.default = default_values[arg]
         attrs[arg] = spec
 
-    def get_this_args(self, data_store=None):
+    def get_this_args(self, runner=None):
         this_args = {}
         for k, v in attrs.iteritems():
             value = getattr(self, k)
-            if isinstance(v, BaseSpecField) and data_store is not None:
-                value = data_store.execute(value)
+            if isinstance(v, BaseSpecField) and runner is not None:
+                value = value.execute(runner)
 
             this_args[k] = value
 
         return this_args
 
-    def apply(self, data_store=None):
-        this_args = self.get_this_args(data_store)
+    def apply(self, runner):
+        this_args = self.get_this_args(runner)
         return func_to_execute(**this_args)
 
     def __repr__(self):

@@ -12,7 +12,7 @@ Also an `Spec` can be combined with another `Spec` which allows them to specify
 things like experiments that combine both models and data sources.
 Specs are both **json-serializable** and **hasheable**.
   
-An `Operation` is an spec that computs something out of it. Can be though
+An `Operation` is an spec that computes something out of it. Can be though
 as a [currified function](https://en.wikipedia.org/wiki/Currying#Illustration)
 
 That leads us to the `DataStore`, whose capability is to index an `Spec`.

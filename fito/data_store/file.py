@@ -1,110 +1,53 @@
-from time import time, sleep
-import json
 import mmh3
 import os
 import pickle
 import shutil
+from time import time, sleep
 
-from fito.data_store.base import BaseDataStore
-from fito.operations.base import Operation, GetOperation
-
-
-class Serializer(object):
-    @classmethod
-    def save(cls, obj, subdir): raise NotImplemented()
-
-    @classmethod
-    def load(cls, subdir): raise NotImplemented()
-
-    @classmethod
-    def exists(cls, subdir): raise NotImplemented()
-
-    @classmethod
-    def iter_subclasses(cls):
-        queue = cls.__subclasses__()
-        while len(queue) > 0:
-            e = queue.pop()
-            l = e.__subclasses__()
-            yield e
-            queue.extend(l)
+from fito import PrimitiveField
+from fito import Spec
+from fito import SpecField
+from fito.data_store.base import BaseDataStore, Get
 
 
-class SingleFileSerializer(Serializer):
-    @classmethod
-    def get_fname(cls, subdir): raise NotImplemented()
+class Serializer(Spec):
+    def save(self, obj, subdir): raise NotImplemented()
 
-    @classmethod
-    def exists(cls, subdir):
-        return os.path.exists(cls.get_fname(subdir))
+    def load(self, subdir): raise NotImplemented()
 
-class PickleSerializer(SingleFileSerializer):
-    @classmethod
-    def get_fname(cls, subdir):
-        return os.path.join(subdir, 'obj.pkl')
-
-    @classmethod
-    def save(cls, obj, subdir):
-        with open(cls.get_fname(subdir), 'w') as f:
-            pickle.dump(obj, f, 2)
-
-    @classmethod
-    def load(cls, subdir):
-        with open(cls.get_fname(subdir)) as f:
-            return pickle.load(f)
-
-class RawSerializer(SingleFileSerializer):
-    @classmethod
-    def get_fname(cls, subdir):
-        return os.path.join(subdir, 'obj.raw')
-
-    @classmethod
-    def save(cls, obj, subdir):
-        with open(cls.get_fname(subdir), 'w') as f:
-            f.write(obj)
-
-    @classmethod
-    def load(cls, subdir):
-        with open(cls.get_fname(subdir)) as f:
-            return f.read()
+    def exists(self, subdir): raise NotImplemented()
 
 
 class FileDataStore(BaseDataStore):
-    def __init__(self, path, get_cache_size=0, execute_cache_size=0, split_keys=True, serializer=None):
-        super(FileDataStore, self).__init__(get_cache_size=get_cache_size, execute_cache_size=execute_cache_size)
-        self.split_keys = split_keys
-        self.path = path
-        if not os.path.exists(path): os.makedirs(path)
+    path = PrimitiveField(0)
+    split_keys = PrimitiveField(default=True)
+    serializer = SpecField(default=None, base_type=Serializer)
 
-        conf_file = os.path.join(path, 'conf.json')
+    def __init__(self, *args, **kwargs):
+        super(FileDataStore, self).__init__(*args, **kwargs)
+
+        if not os.path.exists(self.path): os.makedirs(self.path)
+
+        conf_file = os.path.join(self.path, 'conf.json')
         if os.path.exists(conf_file):
             with open(conf_file) as f:
-                conf = json.load(f)
+                conf_serializer = Spec.from_yaml(f.read())
 
-            if serializer is not None:
-                if conf['serializer'] != serializer.__name__:
-                    raise ValueError(
-                        'This store was initialized with {} Serializer, but now received {}'.format(conf['serializer'],
-                                                                                                    serializer.__name__)
-                    )
+            if self.serializer is None:
+                self.serializer = conf_serializer
             else:
-                for cls in Serializer.iter_subclasses():
-                    if cls.__name__ == conf['serializer']:
-                        serializer = cls
-                        break
-                else:
-                    raise ValueError('Could not find serializer {}'.format(conf['serializer']))
+                if conf_serializer != self.serializer:
+                    raise RuntimeError(
+                        'This store was initialized with {} Serializer, but now received {}'.format(
+                            conf_serializer,
+                            self.serializer)
+                    )
 
         else:
-            serializer = serializer or PickleSerializer
-            this_conf = {
-                # this should include the path...
-                'serializer': serializer.__name__
-            }
+            self.serializer = self.serializer or PickleSerializer()
 
             with open(conf_file, 'w') as f:
-                json.dump(this_conf, f)
-
-        self.serializer = serializer
+                self.serializer.yaml.dump(f)
 
     def clean(self, cls=None):
         for op in self.iterkeys():
@@ -124,9 +67,9 @@ class FileDataStore(BaseDataStore):
                 key = f.read()
 
             try:
-                op = Operation.key2operation(key)
-            except ValueError, e: # there might be a key that is not a valid json
-                if e.args[0] == 'Unknown operation type': raise e
+                op = Spec.key2spec(key)
+            except ValueError, e:  # there might be a key that is not a valid json
+                if e.args[0] == 'Unknown spec type': raise e
                 continue
 
             yield op
@@ -139,8 +82,8 @@ class FileDataStore(BaseDataStore):
                 # TODO: check whether the file exists or not
                 continue
 
-    def _get_dir(self, series_name_or_operation):
-        key = self._get_key(series_name_or_operation)
+    def _get_dir(self, name_or_spec):
+        key = self._get_key(name_or_spec)
         h = str(mmh3.hash(key))
         if self.split_keys:
             fname = os.path.join(self.path, h[:3], h[3:6], h[6:])
@@ -148,11 +91,11 @@ class FileDataStore(BaseDataStore):
             fname = os.path.join(self.path, h)
         return fname
 
-    def _get_subdir(self, series_name_or_operation):
-        dir = self._get_dir(series_name_or_operation)
-        if not os.path.exists(dir): raise KeyError("Operation not found")
+    def _get_subdir(self, name_or_spec):
+        dir = self._get_dir(name_or_spec)
+        if not os.path.exists(dir): raise KeyError("Spec not found")
 
-        op_key = self._get_key(series_name_or_operation)
+        op_key = self._get_key(name_or_spec)
         subdirs = os.listdir(dir)
         for subdir in subdirs:
             subdir = os.path.join(dir, subdir)
@@ -170,22 +113,26 @@ class FileDataStore(BaseDataStore):
                     key = f.read()
             if key == op_key and self.serializer.exists(subdir): break
         else:
-            raise KeyError("Operation not found")
+            raise KeyError("Spec not found")
 
         return subdir
 
-    def _get(self, series_name_or_operation):
-        subdir = self._get_subdir(series_name_or_operation)
-        try: return self.serializer.load(subdir)
-        except: raise KeyError('{} not found'.format(series_name_or_operation))
+    def _get(self, name_or_spec):
+        subdir = self._get_subdir(name_or_spec)
+        try:
+            return self.serializer.load(subdir)
+        except:
+            raise KeyError('{} not found'.format(name_or_spec))
 
-    def save(self, series_name_or_operation, series):
-        dir = self._get_dir(series_name_or_operation)
+    def save(self, name_or_spec, series):
+        dir = self._get_dir(name_or_spec)
         # this accounts for both checking if it not exists, and the fact that there might
         # be another process doing the same thing
-        try: os.makedirs(dir)
-        except OSError: pass
-        op_key = self._get_key(series_name_or_operation)
+        try:
+            os.makedirs(dir)
+        except OSError:
+            pass
+        op_key = self._get_key(name_or_spec)
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
             key_fname = os.path.join(subdir, 'key')
@@ -213,22 +160,55 @@ class FileDataStore(BaseDataStore):
         self.serializer.save(series, subdir)
 
     @classmethod
-    def _get_key(cls, series_name_or_operation):
-        operation = cls._get_operation(series_name_or_operation)
-        return operation.key
+    def _get_key(cls, name_or_spec):
+        spec = cls._get_spec(name_or_spec)
+        return spec.key
 
-    def __contains__(self, series_name_or_operation):
+    def __contains__(self, name_or_spec):
         try:
-            subdir = self._get_subdir(series_name_or_operation)
+            subdir = self._get_subdir(name_or_spec)
             return self.serializer.exists(subdir)
         except KeyError:
             return False
 
     @classmethod
-    def _get_operation(cls, series_name_or_operation):
-        if isinstance(series_name_or_operation, basestring):
-            return GetOperation(name=series_name_or_operation)
-        elif isinstance(series_name_or_operation, Operation):
-            return series_name_or_operation
+    def _get_spec(cls, name_or_spec):
+        if isinstance(name_or_spec, basestring):
+            return Get(name=name_or_spec)
+        elif isinstance(name_or_spec, Spec):
+            return name_or_spec
         else:
             raise ValueError("invalid argument")
+
+
+class SingleFileSerializer(Serializer):
+    def get_fname(self, subdir): raise NotImplemented()
+
+    def exists(self, subdir):
+        return os.path.exists(self.get_fname(subdir))
+
+
+class PickleSerializer(SingleFileSerializer):
+    def get_fname(self, subdir):
+        return os.path.join(subdir, 'obj.pkl')
+
+    def save(self, obj, subdir):
+        with open(self.get_fname(subdir), 'w') as f:
+            pickle.dump(obj, f, 2)
+
+    def load(self, subdir):
+        with open(self.get_fname(subdir)) as f:
+            return pickle.load(f)
+
+
+class RawSerializer(SingleFileSerializer):
+    def get_fname(self, subdir):
+        return os.path.join(subdir, 'obj.raw')
+
+    def save(self, obj, subdir):
+        with open(self.get_fname(subdir), 'w') as f:
+            f.write(obj)
+
+    def load(self, subdir):
+        with open(self.get_fname(subdir)) as f:
+            return f.read()
