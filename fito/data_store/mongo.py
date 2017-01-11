@@ -2,6 +2,8 @@ import mmh3
 from random import random
 
 import pymongo
+from fito import PrimitiveField
+from fito import SpecField
 from fito.data_store.base import BaseDataStore
 from fito import Spec
 from gridfs import GridFS
@@ -23,26 +25,29 @@ class MongoHashMap(BaseDataStore):
     """
     Mongo based key value store
     """
-    def __init__(self, coll, client=None, add_increlemtal_id=True, get_cache_size=0, operation_runner=None,
-                 use_gridfs=False):
-        super(MongoHashMap, self).__init__(get_cache_size=get_cache_size, operation_runner=operation_runner)
+    coll = PrimitiveField(0)
+    add_incremental_id = PrimitiveField(default=False)
+    use_gridfs = PrimitiveField(default=False)
 
-        client = client or global_client
+    def __init__(self, *args, **kwargs):
+        super(MongoHashMap, self).__init__(*args, **kwargs)
 
-        if isinstance(coll, basestring):
-            coll = get_collection(client, coll)
+        if isinstance(self.coll, basestring):
+            self.coll = get_collection(global_client, self.coll)
         else:
-            assert isinstance(coll, Collection)
-        self.coll = coll
+            assert isinstance(self.coll, Collection)
 
-        self.add_incremental_id = add_increlemtal_id
-        if add_increlemtal_id: self._init_incremental_id()
+        if self.add_incremental_id: self._init_incremental_id()
 
-        self.use_gridfs = use_gridfs
         if self.use_gridfs:
-            self.gridfs = GridFS(coll.database, coll.name + '.fs')
+            self.gridfs = GridFS(self.coll.database, self.coll.name + '.fs')
         else:
             self.gridfs = None
+
+    def to_dict(self):
+        res = super(MongoHashMap, self).to_dict()
+        res['coll'] = '{}.{}'.format(self.coll.database.name, self.coll.name)
+        return res
 
     def get_collections(self):
         res = [self.coll, self.coll.conf]
@@ -123,8 +128,7 @@ class MongoHashMap(BaseDataStore):
 
     def iterkeys(self):
         for doc in self.coll.find(no_cursor_timeout=False, projection=['spec']):
-            spec = Spec.dict2spec(doc['spec'])
-            yield spec
+            yield Spec.dict2spec(doc['spec'])
 
     def iteritems(self):
         for doc in self.coll.find(no_cursor_timeout=False):
