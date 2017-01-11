@@ -2,6 +2,7 @@ import json
 
 from StringIO import StringIO
 from functools import total_ordering
+from types import FunctionType
 
 from fito.specs.utils import recursive_map, is_iterable, general_iterator
 from memoized_property import memoized_property
@@ -273,7 +274,8 @@ class Spec(object):
             if val is None: continue
             if not attr_type.check_valid_value(val):
                 raise InvalidSpecInstance(
-                    "Invalid value for parameter {}. Received {}, expected {}".format(attr, val, attr_type.allowed_types)
+                    "Invalid value for parameter {}. Received {}, expected {}".format(attr, val,
+                                                                                      attr_type.allowed_types)
                 )
 
         for attr in kwargs:
@@ -389,7 +391,7 @@ class Spec(object):
     def get_fields(cls):
         for k in dir(cls):
             v = getattr(cls, k)
-            if isinstance(v, BaseSpecField) or isinstance(v, PrimitiveField) or isinstance(v, SpecCollection):
+            if isinstance(v, Field):
                 yield k, v
 
     @classmethod
@@ -425,6 +427,7 @@ class Spec(object):
         else:
             for cls in Spec._get_all_subclasses():
                 if cls.__name__ == spec_type: return cls
+
     @staticmethod
     def dict2spec(dict):
         cls = Spec.type2spec_class(dict['type'])
@@ -495,4 +498,3 @@ class Spec(object):
             return res
         else:
             return obj
-
