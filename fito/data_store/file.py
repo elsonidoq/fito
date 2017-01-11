@@ -4,39 +4,50 @@ import pickle
 import shutil
 from time import time, sleep
 
+from fito import PrimitiveField
 from fito import Spec
+from fito import SpecField
 from fito.data_store.base import BaseDataStore, Get
 
 
-class FileDataStore(BaseDataStore):
-    def __init__(self, path, get_cache_size=0, operation_runner=None, split_keys=True, serializer=None):
-        super(FileDataStore, self).__init__(get_cache_size=get_cache_size, operation_runner=operation_runner)
-        self.split_keys = split_keys
-        self.path = path
-        if not os.path.exists(path): os.makedirs(path)
+class Serializer(Spec):
+    def save(self, obj, subdir): raise NotImplemented()
 
-        conf_file = os.path.join(path, 'conf.json')
+    def load(self, subdir): raise NotImplemented()
+
+    def exists(self, subdir): raise NotImplemented()
+
+
+class FileDataStore(BaseDataStore):
+    path = PrimitiveField(0)
+    split_keys = PrimitiveField(default=True)
+    serializer = SpecField(default=None, base_type=Serializer)
+
+    def __init__(self, *args, **kwargs):
+        super(FileDataStore, self).__init__(*args, **kwargs)
+
+        if not os.path.exists(self.path): os.makedirs(self.path)
+
+        conf_file = os.path.join(self.path, 'conf.json')
         if os.path.exists(conf_file):
             with open(conf_file) as f:
                 conf_serializer = Spec.from_yaml(f.read())
 
-            if serializer is None:
-                serializer = conf_serializer
+            if self.serializer is None:
+                self.serializer = conf_serializer
             else:
-                if conf_serializer != serializer:
+                if conf_serializer != self.serializer:
                     raise RuntimeError(
                         'This store was initialized with {} Serializer, but now received {}'.format(
                             conf_serializer,
-                            serializer)
+                            self.serializer)
                     )
 
         else:
-            serializer = serializer or PickleSerializer()
+            self.serializer = self.serializer or PickleSerializer()
 
             with open(conf_file, 'w') as f:
-                serializer.yaml.dump(f)
-
-        self.serializer = serializer
+                self.serializer.yaml.dump(f)
 
     def clean(self, cls=None):
         for op in self.iterkeys():
@@ -168,14 +179,6 @@ class FileDataStore(BaseDataStore):
             return name_or_spec
         else:
             raise ValueError("invalid argument")
-
-
-class Serializer(Spec):
-    def save(self, obj, subdir): raise NotImplemented()
-
-    def load(self, subdir): raise NotImplemented()
-
-    def exists(self, subdir): raise NotImplemented()
 
 
 class SingleFileSerializer(Serializer):
