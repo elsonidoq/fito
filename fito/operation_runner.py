@@ -1,12 +1,20 @@
 from collections import OrderedDict
 
+from fito import PrimitiveField
+from fito import Spec
+from fito.specs.base import NumericField
 
-class OperationRunner(object):
-    def __init__(self, cache_size=0, verbose=False):
-        if cache_size == 0:
+
+class OperationRunner(Spec):
+    cache_size = NumericField(0, default=0)
+    verbose = PrimitiveField(1, default=False)
+
+    def __init__(self, *args, **kwargs):
+        super(OperationRunner, self).__init__(*args, **kwargs)
+        if self.cache_size == 0:
             self.cache = None
         else:
-            self.cache = FifoCache(cache_size, verbose)
+            self.cache = FifoCache(self.cache_size, self.verbose)
 
     def execute(self, operation):
         """
