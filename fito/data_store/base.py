@@ -1,20 +1,15 @@
 from functools import wraps
 
-from fito import Spec
+from fito import Operation
 from fito import PrimitiveField
+from fito import Spec
+from fito import SpecField
 from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import GenericDecorator, operation_from_func
+from fito.specs.base import NumericField
 
 
-class Get(Spec):
-    name = PrimitiveField(0, base_type=basestring)
-    input = PrimitiveField(1)
-
-    def apply(self, runner):
-        return self.input.get(self.name)
-
-
-class BaseDataStore(object):
+class BaseDataStore(Spec):
     """
     Base class for all data stores, to implement a backend you need to implement
     _get, save and iteritems methods
@@ -23,18 +18,22 @@ class BaseDataStore(object):
 
     """
 
-    def __init__(self, get_cache_size=0, operation_runner=None):
+    get_cache_size = NumericField(default=0)
+    operation_runner = SpecField(default=OperationRunner())
+
+    def __init__(self, *args, **kwargs):
         """
         Instances the data store.
 
         :param get_cache_size: Size of the FIFO cache for serialization
         """
-        if get_cache_size > 0:
-            self.get_cache = FifoCache(get_cache_size)
+        super(BaseDataStore, self).__init__(*args, **kwargs)
+        if self.get_cache_size > 0:
+            self.get_cache = FifoCache(self.get_cache_size)
         else:
             self.get_cache = None
 
-        self.operation_runner = operation_runner or OperationRunner()
+        self.operation_runner = self.operation_runner or OperationRunner()
 
     def get(self, name_or_spec):
         """
@@ -78,32 +77,22 @@ class BaseDataStore(object):
     def get_or_none(self, name_or_spec):
         try:
             return self.get(name_or_spec)
-        except ValueError:
+        except KeyError:
             return None
-
-    def get_or_execute(self, name_or_spec):
-        op = self._get_spec(name_or_spec)
-        if op in self:
-            res = self[op]
-        else:
-            res = self.operation_runner.execute(op)
-        return res
 
     def __contains__(self, name_or_spec):
         return self.get_or_none(name_or_spec) is not None
 
-    @classmethod
-    def _get_spec(cls, name_or_spec):
-        if isinstance(name_or_spec, basestring):
-            return Get(name=name_or_spec)
+    def _get_spec(self, name_or_spec):
+        if isinstance(name_or_spec, basestring) or isinstance(name_or_spec, int):
+            return Get(name=name_or_spec, input=self)
         elif isinstance(name_or_spec, Spec):
             return name_or_spec
         else:
-            raise ValueError("invalid argument")
+            raise ValueError("Can not convert {} to a Spec".format(name_or_spec))
 
-    @classmethod
-    def _get_key(cls, name_or_spec):
-        operation = cls._get_spec(name_or_spec)
+    def _get_key(self, name_or_spec):
+        operation = self._get_spec(name_or_spec)
         if isinstance(operation, Get):
             key = operation.name
         else:
@@ -183,3 +172,13 @@ class AutosavedFunction(GenericDecorator):
 
         return FunctionWrapper()
 
+
+class Get(Operation):
+    name = PrimitiveField(0, base_type=basestring)
+    input = SpecField(1, base_type=BaseDataStore)
+
+    def apply(self, runner):
+        return self.input[self]
+
+    def __repr__(self):
+        return '{}'.format(self.name)
