@@ -22,7 +22,6 @@ class TestMongoDataStore(unittest.TestCase):
             for spec in self.test_specs:
                 ds[spec] = "asdf"
 
-
     def test_delete(self):
         for ds in self.data_stores:
             for spec in ds.iterkeys():
@@ -33,3 +32,13 @@ class TestMongoDataStore(unittest.TestCase):
     def test_choice(self):
         for ds in self.data_stores:
             ds.choice()
+
+    def test_clean(self):
+        for ds in self.data_stores:
+            # just to make sure it doesn't fail
+            ds.clean()
+
+    def test_create_indices(self):
+        for ds in self.data_stores:
+            ds.create_indices()
+            ds.create_indices()
