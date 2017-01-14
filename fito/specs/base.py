@@ -181,7 +181,7 @@ class KwargsField(SpecCollection):
 
     @property
     def allowed_types(self):
-        return [object]
+        return [dict]
 
 
 class ArgsField(SpecCollection):
@@ -190,7 +190,7 @@ class ArgsField(SpecCollection):
 
     @property
     def allowed_types(self):
-        return [object]
+        return [tuple, list]
 
 
 class SpecMeta(type):
@@ -256,7 +256,7 @@ class Spec(object):
 
     def __init__(self, *args, **kwargs):
         # Get the field spec
-        fields = dict(type(self).get_fields())
+        fields = dict(self.get_fields())
 
         #
         pos2name = {}
@@ -275,8 +275,10 @@ class Spec(object):
         if len(pos2name) == 0:
             max_nargs = 0
         else:
-            max_nargs = max(pos2name) + 1 + len(
-                [attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
+            max_nargs = (
+                max(pos2name) + 1 #+
+                # len([attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
+            )
         if len(args) > max_nargs and args_field is None:
             raise InvalidSpecInstance(
                 (
@@ -294,6 +296,7 @@ class Spec(object):
             if args_field is not None and i >= max_nargs:
                 args_param_value.append(arg)
             else:
+                if i not in pos2name: import ipdb; ipdb.set_trace()
                 kwargs[pos2name[i]] = arg
 
         for attr, attr_type in fields.iteritems():
@@ -514,9 +517,13 @@ class Spec(object):
     def _from_dict(cls, kwargs):
         kwargs = kwargs.copy()
         kwargs.pop('type')
+        args = tuple()
+
         for attr, attr_type in cls.get_fields():
-            if isinstance(attr_type, PrimitiveField) and isinstance(kwargs[attr], basestring) and ':' in kwargs[attr]:
-                kwargs[attr] = obj_from_path(kwargs[attr])
+            val = kwargs[attr]
+
+            if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and ':' in kwargs[attr]:
+                kwargs[attr] = obj_from_path(val)
 
             elif isinstance(attr_type, BaseSpecField):
                 kwargs[attr] = Spec.dict2spec(kwargs[attr])
@@ -535,9 +542,15 @@ class Spec(object):
                     except:
                         return is_iterable(obj)
 
-                kwargs[attr] = recursive_map(kwargs[attr], f, recursion_condition)
+                val = recursive_map(kwargs[attr], f, recursion_condition)
+                if isinstance(attr_type, ArgsField):
+                    args = tuple(val)
+                elif isinstance(attr_type, KwargsField):
+                    kwargs.update(val)
+                else:
+                    kwargs[attr] = val
 
-        return cls(**kwargs)
+        return cls(*args, **kwargs)
 
     @classmethod
     def __dict2key(cls, d):
