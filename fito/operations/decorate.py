@@ -1,10 +1,9 @@
 from __future__ import print_function
 
 import inspect
-from functools import wraps
 
 from fito.operations.operation import Operation
-from fito.specs.base import PrimitiveField, BaseSpecField, Spec, CollectionField, KwargsField, SpecField
+from fito.specs.base import PrimitiveField, BaseSpecField, Spec, KwargsField
 
 try:
     import cPickle
