@@ -7,7 +7,8 @@ from random import Random
 import re
 
 from fito import Spec, SpecField, PrimitiveField
-from fito.specs.base import NumericField, CollectionField, SpecCollection, InvalidSpecInstance, BaseSpecField
+from fito.specs.base import NumericField, CollectionField, SpecCollection, InvalidSpecInstance, BaseSpecField, \
+    KwargsField, ArgsField
 from fito.specs.utils import general_append
 from fito.specs import base as specs_base
 
@@ -15,6 +16,7 @@ from fito.specs import base as specs_base
 class SpecA(Spec):
     field1 = NumericField(0)
     field2 = PrimitiveField(1, default=None)
+    func = PrimitiveField(default=general_append)
 
     def __repr__(self):
         return "A(field1={}, field2={})".format(self.field1, self.field2)
@@ -38,15 +40,25 @@ class SpecC(Spec):
         return "C(op_list={})".format(self.op_list)
 
 
-def get_test_specs(only_lists=False, easy=False):
+class SpecD(Spec):
+    the_args = ArgsField()
+    the_kwargs = KwargsField()
+
+
+def get_test_specs(only_lists=True, easy=False):
     if easy:
         warnings.warn("get_test_specs(easy=True)")
 
     instances = [
         SpecA(0),
         SpecA(1, datetime(2017, 1, 1)),
+        SpecA(1, func=NumericField),
         SpecB(operation_a=SpecA(0)),
         SpecB(operation_a=SpecA(1)),
+        SpecD(),
+        SpecD(a=1),
+        SpecD(4, a=1),
+        SpecD(4),
     ]
 
     if easy: return instances
@@ -95,7 +107,8 @@ class TestSpec(unittest.TestCase):
             load_func = getattr(Spec, 'from_{}'.format(module_name))
             loaded_op = load_func(op_dump)
             assert loaded_op == load_func(op_dumps)
-            assert loaded_op == op
+            try: assert loaded_op == op
+            except: import ipdb;ipdb.set_trace()
 
     def test_json_serializable(self):
         self._test_serialization('json')
@@ -103,7 +116,7 @@ class TestSpec(unittest.TestCase):
     def test_yaml_serializable(self):
         self._test_serialization('yaml')
 
-    def test_operation_argspec(self):
+    def test_argspec(self):
         invalid_ops = [
             # SpecA has 1 arguments
             lambda: SpecA(),
