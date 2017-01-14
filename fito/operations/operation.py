@@ -1,5 +1,5 @@
 from fito import OperationRunner
-from fito.specs.base import Spec, SpecField
+from fito.specs.base import Spec, SpecField, _no_default
 
 
 class Operation(Spec):
@@ -13,3 +13,5 @@ class Operation(Spec):
         raise NotImplementedError()
 
 
+def OperationField(pos=None, default=_no_default, base_type=None):
+    return SpecField(pos=pos, default=default, base_type=base_type or Operation)
