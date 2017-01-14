@@ -107,8 +107,7 @@ class TestSpec(unittest.TestCase):
             load_func = getattr(Spec, 'from_{}'.format(module_name))
             loaded_op = load_func(op_dump)
             assert loaded_op == load_func(op_dumps)
-            try: assert loaded_op == op
-            except: import ipdb;ipdb.set_trace()
+            assert loaded_op == op
 
     def test_json_serializable(self):
         self._test_serialization('json')
