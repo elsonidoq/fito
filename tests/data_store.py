@@ -4,7 +4,6 @@ import tempfile
 import unittest
 
 from fito.data_store import file, dict_ds, mongo
-from fito.data_store.base import Get
 from fito.data_store.mongo import get_collection, global_client
 from spec import get_test_specs
 from operation import get_test_operations
@@ -22,6 +21,7 @@ class TestDataStore(unittest.TestCase):
         file_data_store_preffix = tempfile.mktemp()
         base_mongo_collection = get_collection(global_client, 'test.test')
         base_mongo_collection.drop()
+
 
         self.data_stores = [
             mongo.MongoHashMap(base_mongo_collection),
@@ -51,7 +51,7 @@ class TestDataStore(unittest.TestCase):
             if isinstance(store, file.FileDataStore):
                 delete(store.path)
             elif isinstance(store, mongo.MongoHashMap):
-                store.coll.drop()
+                store.clean()
 
     def test_iter_items(self):
         for ds in self.data_stores:

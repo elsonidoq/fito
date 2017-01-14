@@ -21,14 +21,20 @@ class OperationRunner(Spec):
         Executes an operation using this data store as input
         If this data store was configured to use an execute cache, it will be used
         """
+        in_cache = False
         if self.cache is None:
-            return operation.apply(self)
+            res = operation.apply(self)
         else:
             res = self.cache.get(operation)
             if res is self.cache.no_result:
+                in_cache = True
                 res = operation.apply(self)
                 self.cache.set(operation, res)
-            return res
+
+        if operation.out_data_store is not None and not in_cache:
+            operation.out_data_store[operation] = res
+
+        return res
 
 
 class FifoCache(object):

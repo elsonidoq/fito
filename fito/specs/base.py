@@ -1,8 +1,7 @@
+import inspect
 import json
-
 from StringIO import StringIO
 from functools import total_ordering
-from types import FunctionType
 
 from fito.specs.utils import recursive_map, is_iterable, general_iterator
 from memoized_property import memoized_property
@@ -59,7 +58,10 @@ class Field(object):
         raise NotImplementedError()
 
     def check_valid_value(self, value):
-        return any([isinstance(value, t) for t in self.allowed_types])
+        return any([isinstance(value, t) for t in self.allowed_types] )
+
+    def __eq__(self, other):
+        return self is other
 
 
 class PrimitiveField(Field):
@@ -173,6 +175,24 @@ class SpecCollection(Field):
         return True
 
 
+class KwargsField(SpecCollection):
+    def __init__(self):
+        super(KwargsField, self).__init__(default={})
+
+    @property
+    def allowed_types(self):
+        return [dict]
+
+
+class ArgsField(SpecCollection):
+    def __init__(self):
+        super(ArgsField, self).__init__(default=tuple())
+
+    @property
+    def allowed_types(self):
+        return [tuple, list]
+
+
 class SpecMeta(type):
     def __new__(cls, name, bases, dct):
         """
@@ -183,13 +203,14 @@ class SpecMeta(type):
         :return: New Spec subclass
         """
         res = type.__new__(cls, name, bases, dct)
-        fields_pos = sorted([attr_type.pos for attr_name, attr_type in res.get_fields() if attr_type.pos is not None])
+        fields = dict(res.get_fields())
+        fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
         if fields_pos != range(len(fields_pos)):
             raise ValueError("Bad `pos` for attribute %s" % name)
 
-        if name != 'Spec':
-            method_name = 'is_%s' % (name.replace('Spec', '').lower())
-            setattr(Spec, method_name, property(lambda self: isinstance(self, res)))
+        if 'key' in fields:
+            raise ValueError("Can not use the `key` field, it's reserved")
+
         return res
 
 
@@ -236,17 +257,29 @@ class Spec(object):
 
     def __init__(self, *args, **kwargs):
         # Get the field spec
-        fields = dict(type(self).get_fields())
+        fields = dict(self.get_fields())
 
-        #
-        pos2name = {attr_type.pos: attr_name for attr_name, attr_type in fields.iteritems() if
-                    attr_type.pos is not None}
+        pos2name = {}
+        kwargs_field = None
+        args_field = None
+        for attr_name, attr_type in fields.iteritems():
+            if attr_type.pos is not None:
+                pos2name[attr_type.pos] = attr_name
+
+            elif isinstance(attr_type, KwargsField):
+                kwargs_field = attr_name
+
+            elif isinstance(attr_type, ArgsField):
+                args_field = attr_name
+
         if len(pos2name) == 0:
             max_nargs = 0
         else:
-            max_nargs = max(pos2name) + 1 + len(
-                [attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
-        if len(args) > max_nargs:
+            max_nargs = (
+                max(pos2name) + 1 #+
+                # len([attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
+            )
+        if len(args) > max_nargs and args_field is None:
             raise InvalidSpecInstance(
                 (
                     "This spec was instanced with {given_args} positional arguments, but I only know how "
@@ -255,17 +288,37 @@ class Spec(object):
                 ).format(given_args=len(args), specified_args=max_nargs)
             )
 
+        # These guys are the ones that are going to be passed to the instance
+        args_param_value = []
+        kwargs_param_value = {}
+
         for i, arg in enumerate(args):
-            kwargs[pos2name[i]] = arg
+            if args_field is not None and i >= max_nargs:
+                args_param_value.append(arg)
+            else:
+                kwargs[pos2name[i]] = arg
 
         for attr, attr_type in fields.iteritems():
             if attr_type.default is not _no_default and attr not in kwargs:
                 kwargs[attr] = attr_type.default
 
+        if kwargs_field is not None:
+            kwargs_param_value = {
+                attr: attr_type
+                for attr, attr_type in kwargs.iteritems()
+                if attr not in fields
+                }
+
+            kwargs = {
+                attr: attr_type
+                for attr, attr_type in kwargs.iteritems()
+                if attr in fields and attr != kwargs_field and attr != args_field
+                }
+
         if len(kwargs) > len(fields):
             raise InvalidSpecInstance("Class %s does not take the following arguments: %s" % (
                 type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
-        elif len(kwargs) < len(fields):
+        elif len(kwargs) < len(fields) - (args_field is not None) - (kwargs_field is not None):
             raise InvalidSpecInstance("Missing arguments for class %s: %s" % (
                 type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
 
@@ -281,6 +334,12 @@ class Spec(object):
         for attr in kwargs:
             if attr not in fields:
                 raise InvalidSpecInstance("Received extra parameter {}".format(attr))
+
+        if args_field is not None:
+            setattr(self, args_field, tuple(args_param_value))
+
+        if kwargs_field is not None:
+            setattr(self, kwargs_field, kwargs_param_value)
 
         for attr, attr_type in kwargs.iteritems():
             setattr(self, attr, attr_type)
@@ -336,6 +395,9 @@ class Spec(object):
             val = getattr(self, attr)
 
             if isinstance(attr_type, PrimitiveField):
+                if inspect.isfunction(val) or inspect.isclass(val):
+                    val = get_import_path(val)
+
                 res[attr] = val
 
             elif isinstance(attr_type, BaseSpecField):
@@ -416,12 +478,7 @@ class Spec(object):
         :return: A subclass of Spec
         """
         if ':' in spec_type:
-            full_path, obj_name = spec_type.split(':')
-
-            fromlist = '.'.join(full_path.split('.')[:-1])
-            module = __import__(full_path, fromlist=fromlist)
-
-            cls = getattr(module, obj_name)
+            cls = obj_from_path(spec_type)
             assert issubclass(cls, Spec), "The provided path does not point to an Spec subclass"
             return cls
         else:
@@ -443,6 +500,7 @@ class Spec(object):
         return Spec.dict2spec(kwargs)
 
     def __hash__(self):
+
         return hash(self.key)
 
     def __eq__(self, other):
@@ -458,10 +516,18 @@ class Spec(object):
     def _from_dict(cls, kwargs):
         kwargs = kwargs.copy()
         kwargs.pop('type')
+        args = tuple()
+
         for attr, attr_type in cls.get_fields():
-            if isinstance(attr_type, BaseSpecField):
+            val = kwargs[attr]
+
+            if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and ':' in kwargs[attr]:
+                kwargs[attr] = obj_from_path(val)
+
+            elif isinstance(attr_type, BaseSpecField):
                 kwargs[attr] = Spec.dict2spec(kwargs[attr])
-            if isinstance(attr_type, SpecCollection):
+
+            elif isinstance(attr_type, SpecCollection):
                 def f(obj):
                     try:
                         return Spec.dict2spec(obj)
@@ -475,9 +541,15 @@ class Spec(object):
                     except:
                         return is_iterable(obj)
 
-                kwargs[attr] = recursive_map(kwargs[attr], f, recursion_condition)
+                val = recursive_map(kwargs[attr], f, recursion_condition)
+                if isinstance(attr_type, ArgsField):
+                    args = tuple(val)
+                elif isinstance(attr_type, KwargsField):
+                    kwargs.update(val)
+                else:
+                    kwargs[attr] = val
 
-        return cls(**kwargs)
+        return cls(*args, **kwargs)
 
     @classmethod
     def __dict2key(cls, d):
@@ -498,3 +570,19 @@ class Spec(object):
             return res
         else:
             return obj
+
+
+def get_import_path(obj):
+    mod = inspect.getmodule(obj)
+    res = '{}:{}'.format(mod.__name__, obj.__name__)
+    return res
+
+
+def obj_from_path(path):
+    full_path, obj_name = path.split(':')
+
+    fromlist = '.'.join(full_path.split('.')[:-1])
+    module = __import__(full_path, fromlist=fromlist)
+
+    obj = getattr(module, obj_name)
+    return obj
