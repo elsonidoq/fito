@@ -135,8 +135,7 @@ class MongoHashMap(BaseDataStore):
             spec, serie = self._parse_doc(doc)
             yield self._dict2spec(doc['spec']), serie
 
-    def _get_doc(self, name_or_spec, projection=None):
-        spec = self._get_spec(name_or_spec)
+    def _get_doc(self, spec, projection=None):
         if projection is not None and 'spec' not in projection:
             projection.append('spec')
 
@@ -149,30 +148,29 @@ class MongoHashMap(BaseDataStore):
 
         return doc
 
-    def _get(self, name_or_spec):
-        doc = self._get_doc(name_or_spec)
+    def _get(self, spec):
+        doc = self._get_doc(spec)
         return self._parse_doc(doc)[1]
 
-    def save(self, name_or_spec, values):
-        spec = self._get_spec(name_or_spec)
+    def save(self, spec, values):
         doc = self._build_doc(spec, values)
         self._insert([doc])
 
-    def delete(self, name_or_spec):
+    def delete(self, spec):
         if self.use_gridfs:
             projection = ['values']
         else:
             projection = []
 
-        doc = self._get_doc(name_or_spec, projection=projection)
+        doc = self._get_doc(spec, projection=projection)
 
         if self.use_gridfs:
             self.gridfs.delete(doc['values'])
 
         self.coll.delete_one({'_id': doc['_id']})
 
-    def __delitem__(self, name_or_spec):
-        self.delete(name_or_spec)
+    def __delitem__(self, spec):
+        self.delete(spec)
 
     def choice(self, n=1, rnd=None):
         while True:
