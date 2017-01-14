@@ -1,8 +1,8 @@
 from memoized_property import memoized_property
-from fito.operations import GetOperation, Operation
+from fito import Spec
 
 import pandas as pd
-from fito.data_store.base import BaseDataStore
+from fito.data_store.base import BaseDataStore, GetOperation
 
 
 class PandasDataStore(BaseDataStore):
@@ -23,7 +23,7 @@ class PandasDataStore(BaseDataStore):
         try:
             return self.fdf[key]
         except KeyError:
-            raise ValueError("Operation not found")
+            raise ValueError("Spec not found")
 
     def save(self, operation, series):
         assert self.fdf.index.is_monotonic and series.index.is_monotonic
@@ -38,7 +38,7 @@ class PandasDataStore(BaseDataStore):
     def iteritems(self):
         for k, v in self.fdf.iteritems():
             try:
-                op = Operation.key2operation(k)
+                op = Spec.key2spec(k)
             except ValueError:
                 op = GetOperation(series_name=k)
             yield op, v
@@ -48,7 +48,7 @@ class PandasDataStore(BaseDataStore):
         res = []
         for k in self.fdf.keys():
             try:
-                res.append(Operation.key2operation(k))
+                res.append(Spec.key2spec(k))
             except ValueError:
                 res.append(GetOperation(k))
         return res

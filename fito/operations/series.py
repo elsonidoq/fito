@@ -1,5 +1,7 @@
 import operator
-from base import Operation, OperationField, PrimitiveField, GetOperation
+
+from fito import Operation
+from fito.specs.base import SpecField, PrimitiveField, GetOperation
 
 
 class SeriesOperation(Operation):
@@ -17,16 +19,14 @@ class SeriesOperation(Operation):
 
 
 class GetSeriesOperation(SeriesOperation, GetOperation):
-    series_name = PrimitiveField(0)
-
     def _apply(self, data_store):
-        return data_store.get(self.series_name)
+        return data_store.get(self.name)
 
     def __compare(self, op, scalar):
         return BinaryOperation(operation=self, op_name=op, val=scalar)
 
     def __eq__(self, scalar):
-        # XXX que onda cuando metemos esto en el hashmap
+        # TODO: what happens when we insert this into a hashmap
         return self.__compare('=', scalar)
 
     def __le__(self, scalar):
@@ -53,24 +53,24 @@ def try_encode(s):
 
 
 class ResampleOperation(SeriesOperation):
-    operation = OperationField()
-    how = PrimitiveField()
-    rule = PrimitiveField()
+    operation = SpecField()
+    how = PrimitiveField(base_type=basestring)
+    rule = PrimitiveField(base_type=basestring)
 
     def _apply(self, data_store):
         series = data_store.execute(self.operation)
         if series.dtype == object:
             series = series.dropna().convert_objects()
 
-        return series.resample(self.rule, how=self.how)
+        return getattr(series.resample(self.rule), self.how)
 
     def __repr__(self):
         return '(%s).resample(how=%s, rule=%s)' % (self.operation, try_encode(self.how), try_encode(self.rule))
 
 
 class ConditionedOperation(SeriesOperation):
-    main_operation = OperationField()
-    cond_operation = OperationField()
+    main_operation = SpecField()
+    cond_operation = SpecField()
 
     def _apply(self, data_store):
         return data_store.execute(self.main_operation)[data_store.execute(self.cond_operation)]
@@ -80,8 +80,8 @@ class ConditionedOperation(SeriesOperation):
 
 
 class AndOperation(SeriesOperation):
-    operation1 = OperationField()
-    operation2 = OperationField()
+    operation1 = SpecField()
+    operation2 = SpecField()
 
     def _apply(self, data_store):
         return data_store.execute(self.operation1) & data_store.execute(self.operation2)
@@ -91,8 +91,8 @@ class AndOperation(SeriesOperation):
 
 
 class OrOperation(SeriesOperation):
-    operation1 = OperationField()
-    operation2 = OperationField()
+    operation1 = SpecField()
+    operation2 = SpecField()
 
     def _apply(self, data_store):
         return data_store.execute(self.operation1) | data_store.execute(self.operation2)
@@ -102,7 +102,7 @@ class OrOperation(SeriesOperation):
 
 
 class IntervalOperation(SeriesOperation):
-    operation = OperationField(0)
+    operation = SpecField(0)
     lbound = PrimitiveField(1)
     ubound = PrimitiveField(2)
 
@@ -121,7 +121,7 @@ class BinaryOperation(SeriesOperation):
            '<': operator.lt,
            '!=': operator.ne}
 
-    operation = OperationField()
+    operation = SpecField()
     op_name = PrimitiveField()
     val = PrimitiveField()
 

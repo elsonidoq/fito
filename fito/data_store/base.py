@@ -99,6 +99,20 @@ class BaseDataStore(Spec):
             key = operation.key
         return key
 
+    def get_or_execute(self, operation):
+        """
+        Base function for all autocaching
+
+        :param operation:
+        :return:
+        """
+        if operation not in self:
+            res = self.operation_runner.execute(operation)
+            self[operation] = res
+        else:
+            res = self.get(operation)
+        return res
+
     def cache(self, **kwargs):
         """
         Decorates a function, instance method or class method for it to be autosaved on this data store
@@ -120,13 +134,7 @@ class BaseDataStore(Spec):
 
         def autosaved(*args, **kwargs):
             operation = OperationClass(*args, **kwargs)
-            if operation not in self:
-                res = self.operation_runner.execute(operation)
-                self[operation] = res
-            else:
-                res = self.get(operation)
-            return res
-
+            return self.get_or_execute(operation)
         return autosaved
 
 
