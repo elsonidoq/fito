@@ -5,7 +5,6 @@ from fito import as_operation
 from psycopg2.tests import unittest
 from pymongo import MongoClient
 
-ds = DictDataStore()
 
 
 class BaseOp(Operation): pass
@@ -78,11 +77,15 @@ class TestChainedOperations(unittest.TestCase):
             assert op.execute() == expected_value
 
     def test_cache(self):
-        ds.data = {}
+        # Now BaseOp sublcasses auto save their output on ds
+        ds = DictDataStore()
         BaseOp.out_data_store = ds
 
+        # Execute all and autosave it to ds
         self.test_run()
+        # Disable autosaving
         BaseOp.out_data_store = None
 
+        # Check that the saved values correspond to the output of execute
         for op, val in ds.iteritems():
             assert op.execute() == val
