@@ -80,5 +80,4 @@ class TestOperation(unittest.TestCase):
 
     def test_memory_object(self):
         l = List(range(10))
-        d = l.to_dict()
         assert l.l == List.dict2spec(l.to_dict()).l
