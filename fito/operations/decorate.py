@@ -3,7 +3,7 @@ from __future__ import print_function
 import inspect
 
 from fito.operations.operation import Operation
-from fito.specs.base import PrimitiveField, BaseSpecField
+from fito.specs.base import PrimitiveField, BaseSpecField, Spec, CollectionField, KwargsField
 
 try:
     import cPickle
@@ -11,17 +11,16 @@ except ImportError:
     import pickle as cPickle
 
 
-class GenericDecorator(object):
-    def __init__(self, **kwargs):
-        """
-        Abstracts all the boilerplate required to build a decorator that works on functions, instance methods and class methods
+class GenericDecorator(Spec):
+    """
+    Abstracts all the boilerplate required to build a decorator that works on functions, instance methods and class methods
 
 
-        :param method_type: if is None, the decorated function is assumed to be a function, otherwise it is assumed
-            to be a method. If method_type == 'instance' the function is assumed to be an instance method otherwise a
-            classmethod
-        """
-        self.method_type = kwargs.pop('method_type', None)
+    :param method_type: if is None, the decorated function is assumed to be a function, otherwise it is assumed
+        to be a method. If method_type == 'instance' the function is assumed to be an instance method otherwise a
+        classmethod
+    """
+    method_type = PrimitiveField(0, default=None)
 
     def __get__(self, instance, owner):
         if (instance is None and self.method_type == 'instance') or \
@@ -63,16 +62,13 @@ class GenericDecorator(object):
 class as_operation(GenericDecorator):
     """
     Creates an operation from a callable
+    :param out_type: Base class of the operation to be built. Defaults to `Operation`
+    :param out_name: Name of the class to be built, deafults to the decorated function name.
     """
-    def __init__(self, **kwargs):
-        """
-        :param out_type: Base class of the operation to be built. Defaults to `Operation`
-        :param out_name: Name of the class to be built, deafults to the decorated function name.
-        """
-        self.out_type = kwargs.pop('out_type', Operation)
-        self.out_name = kwargs.pop('out_name', None)
-        self.args_specifications = kwargs
-        super(as_operation, self).__init__(**kwargs)
+    method_type = PrimitiveField(default=None)
+    out_type = PrimitiveField(default=Operation)
+    out_name = PrimitiveField(default=None)
+    args_specifications = KwargsField()
 
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
         f_spec = f_spec or inspect.getargspec(to_wrap)
@@ -87,7 +83,7 @@ class as_operation(GenericDecorator):
         )
 
 
-def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_specifications, f_spec=None, method_type=False):
+def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_specifications, f_spec=None, method_type=None):
     """
     In the case of methods, to_wrap is not the same to func_to_execute
     :param to_wrap: See `GenericDecorator.create_decorated` for an explanation
