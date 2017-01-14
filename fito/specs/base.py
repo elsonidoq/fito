@@ -156,7 +156,6 @@ def SpecField(pos=None, default=_no_default, base_type=None):
 
     return return_type(pos=pos, default=default, base_type=base_type)
 
-
 class SpecCollection(Field):
     """
     Specifies a Field whose value is going to be a collection of specs
@@ -524,7 +523,7 @@ class Spec(object):
             if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and ':' in kwargs[attr]:
                 kwargs[attr] = obj_from_path(val)
 
-            elif isinstance(attr_type, BaseSpecField):
+            elif isinstance(attr_type, BaseSpecField) and val is not None:
                 kwargs[attr] = Spec.dict2spec(kwargs[attr])
 
             elif isinstance(attr_type, SpecCollection):
