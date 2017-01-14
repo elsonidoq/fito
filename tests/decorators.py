@@ -1,36 +1,42 @@
 from fito import DictDataStore
 from fito import Operation
-from fito import SpecField
+from fito import OperationField
 from fito import as_operation
 from psycopg2.tests import unittest
 from pymongo import MongoClient
 
 
-
 class BaseOp(Operation): pass
 
 
+# get_collection('test', 'test')
+# get_collection('test', 'test').execute() returns the corresponding collection
+# get_collection is not a subclass of BaseOp
 @as_operation(out_type=BaseOp)
 def get_collection(db, name):
     client = MongoClient()
     return client[db][name]
 
 
-@as_operation(collection=SpecField(base_type=get_collection), out_type=BaseOp)
+# collection must be the output from a subclass of get_collection
+@as_operation(collection=OperationField(base_type=get_collection), out_type=BaseOp)
 def get_data(collection, query):
     return list(collection.find(query))
 
 
-@as_operation(data=SpecField, out_type=BaseOp)
+# data must be an Operation, but I'm not specifying from which base type, it could be any
+@as_operation(data=OperationField, out_type=BaseOp)
 def filter_odd(data):
     return [e for e in data if e['id'] % 2 == 0]
 
 
-@as_operation(data=SpecField, out_type=BaseOp)
+# data must be a OperationField, but I'm not specifying from which base type, it could be any
+@as_operation(data=OperationField, out_type=BaseOp)
 def sum_all(data):
     return sum([e['id'] for e in data])
 
 
+# Pushes some data into the mongo collection
 def push_data():
     collection = get_collection('test', 'test').execute()
     collection.drop()
@@ -71,6 +77,10 @@ class TestChainedOperations(unittest.TestCase):
             )
 
         ]
+
+    def test_out_type(self):
+        for op_class in sum_all, filter_odd, get_data, get_collection:
+            assert issubclass(op_class, BaseOp)
 
     def test_run(self):
         for op, expected_value in self.operations:
