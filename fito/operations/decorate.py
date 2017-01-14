@@ -34,7 +34,7 @@ class GenericDecorator(Spec):
 
         cls = type(instance) if instance is not None else owner
         assert cls is not None
-        return self.create_decorated(self.func, new_f, inspect.getargspec(self.func))
+        return self.create_decorated(self.func, new_f, inspect.getargspec(self.func), first_arg=first_arg)
 
     def __call__(self, func):
         if self.method_type:
@@ -43,7 +43,7 @@ class GenericDecorator(Spec):
         else:
             return self.create_decorated(func, func)
 
-    def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
+    def create_decorated(self, to_wrap, func_to_execute, f_spec=None, first_arg=None):
         """
         Abstract method that should be implemented in order to build a decorator
 
@@ -54,6 +54,7 @@ class GenericDecorator(Spec):
         :param to_wrap: Original wrapped function
         :param func_to_execute: You should execute this function
         :param f_spec: The argspec of the function to be decorated, if None, it should be computed from to_wrap (TODO: remove this argument)
+        :param first_arg: `self` if it's an instance method, `cls` if it's a classmethod, None otherwise
 
         """
         raise NotImplementedError()
@@ -70,7 +71,7 @@ class as_operation(GenericDecorator):
     out_name = PrimitiveField(default=None)
     args_specifications = KwargsField()
 
-    def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
+    def create_decorated(self, to_wrap, func_to_execute, f_spec=None, first_arg=None):
         f_spec = f_spec or inspect.getargspec(to_wrap)
         return operation_from_func(
             to_wrap=to_wrap,
@@ -79,12 +80,13 @@ class as_operation(GenericDecorator):
             out_name=self.out_name,
             args_specifications=self.args_specifications,
             f_spec=f_spec,
-            method_type=self.method_type
+            method_type=self.method_type,
+            first_arg=first_arg
         )
 
 
 def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_specifications, f_spec=None,
-                        method_type=None):
+                        method_type=None, first_arg=None):
     """
     In the case of methods, to_wrap is not the same to func_to_execute
     :param to_wrap: See `GenericDecorator.create_decorated` for an explanation
@@ -133,7 +135,15 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         this_args = self.get_this_args()
         args = ['%s=%s' % i for i in this_args.iteritems()]
         args = [e if len(e) < 20 else e[:17] + '...' for e in args]
-        return '%s(%s)' % (out_name or to_wrap.__name__, ', '.join(args))
+        res = '%s(%s)' % (out_name or to_wrap.__name__, ', '.join(args))
+        if first_arg is not None:
+            if method_type == 'class':
+                first_arg_name = first_arg.__name__
+            else:
+                first_arg_name = type(first_arg).__name__.lower()
+
+            res = '{}.{}'.format(first_arg_name, res)
+        return res
 
     cls_attrs = attrs.copy()
     cls_attrs['func'] = staticmethod(func_to_execute)
