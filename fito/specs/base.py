@@ -203,13 +203,14 @@ class SpecMeta(type):
         :return: New Spec subclass
         """
         res = type.__new__(cls, name, bases, dct)
-        fields_pos = sorted([attr_type.pos for attr_name, attr_type in res.get_fields() if attr_type.pos is not None])
+        fields = dict(res.get_fields())
+        fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
         if fields_pos != range(len(fields_pos)):
             raise ValueError("Bad `pos` for attribute %s" % name)
 
-        if name != 'Spec':
-            method_name = 'is_%s' % (name.replace('Spec', '').lower())
-            setattr(Spec, method_name, property(lambda self: isinstance(self, res)))
+        if 'key' in fields:
+            raise ValueError("Can not use the `key` field, it's reserved")
+
         return res
 
 
@@ -258,7 +259,6 @@ class Spec(object):
         # Get the field spec
         fields = dict(self.get_fields())
 
-        #
         pos2name = {}
         kwargs_field = None
         args_field = None
@@ -296,7 +296,6 @@ class Spec(object):
             if args_field is not None and i >= max_nargs:
                 args_param_value.append(arg)
             else:
-                if i not in pos2name: import ipdb; ipdb.set_trace()
                 kwargs[pos2name[i]] = arg
 
         for attr, attr_type in fields.iteritems():
