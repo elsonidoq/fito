@@ -6,7 +6,7 @@ from fito import Spec
 from fito import SpecField
 from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import GenericDecorator, operation_from_func
-from fito.specs.base import NumericField
+from fito.specs.base import NumericField, CollectionField, KwargsField
 
 
 class BaseDataStore(Spec):
@@ -139,17 +139,13 @@ class BaseDataStore(Spec):
 
 
 class AutosavedFunction(GenericDecorator):
-    def __init__(self, **kwargs):
-        """
-        For available arguments see `as_operation` decorator
-        """
-        self.data_store = kwargs.pop('data_store')
-        self.out_type = kwargs.pop('out_type', Spec)
-        self.out_name = kwargs.pop('out_name', None)
-        self.args_specifications = kwargs
-        super(AutosavedFunction, self).__init__(**kwargs)
+    data_store = PrimitiveField()
+    out_type = PrimitiveField(default=Operation)
+    out_name = PrimitiveField(default=None)
+    args_specifications = KwargsField()
 
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
+
         OperationClass = operation_from_func(
             to_wrap=to_wrap,
             func_to_execute=func_to_execute,
@@ -159,6 +155,9 @@ class AutosavedFunction(GenericDecorator):
             f_spec=f_spec,
             method_type=self.method_type
         )
+
+        # This operation will autosave to self.data_store
+        OperationClass.out_data_store.default = self.data_store
 
         class FunctionWrapper(object):
             # just to make it declarative each time it is used
