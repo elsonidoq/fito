@@ -9,9 +9,9 @@ from pymongo import MongoClient
 class BaseOp(Operation): pass
 
 
-# get_collection('test', 'test')
 # get_collection('test', 'test').execute() returns the corresponding collection
-# get_collection is not a subclass of BaseOp
+# get_collection('test', 'test') is an instance of BaseOp
+# get_collection is a subclass of BaseOp
 @as_operation(out_type=BaseOp)
 def get_collection(db, name):
     client = MongoClient()
