@@ -1,3 +1,4 @@
+import inspect
 import json
 from StringIO import StringIO
 from functools import total_ordering
@@ -57,7 +58,7 @@ class Field(object):
         raise NotImplementedError()
 
     def check_valid_value(self, value):
-        return any([isinstance(value, t) for t in self.allowed_types])
+        return any([isinstance(value, t) for t in self.allowed_types] )
 
     def __eq__(self, other):
         return self is other
@@ -71,6 +72,7 @@ class PrimitiveField(Field):
     @property
     def allowed_types(self):
         return [object]
+
 
 class CollectionField(PrimitiveField):
     def __len__(self): return
@@ -191,7 +193,6 @@ class ArgsField(SpecCollection):
         return [object]
 
 
-
 class SpecMeta(type):
     def __new__(cls, name, bases, dct):
         """
@@ -304,13 +305,13 @@ class Spec(object):
                 attr: attr_type
                 for attr, attr_type in kwargs.iteritems()
                 if attr not in fields
-            }
+                }
 
             kwargs = {
                 attr: attr_type
                 for attr, attr_type in kwargs.iteritems()
                 if attr in fields and attr != kwargs_field and attr != args_field
-            }
+                }
 
         if len(kwargs) > len(fields):
             raise InvalidSpecInstance("Class %s does not take the following arguments: %s" % (
@@ -392,6 +393,9 @@ class Spec(object):
             val = getattr(self, attr)
 
             if isinstance(attr_type, PrimitiveField):
+                if inspect.isfunction(val) or inspect.isclass(val):
+                    val = get_import_path(val)
+
                 res[attr] = val
 
             elif isinstance(attr_type, BaseSpecField):
@@ -472,12 +476,7 @@ class Spec(object):
         :return: A subclass of Spec
         """
         if ':' in spec_type:
-            full_path, obj_name = spec_type.split(':')
-
-            fromlist = '.'.join(full_path.split('.')[:-1])
-            module = __import__(full_path, fromlist=fromlist)
-
-            cls = getattr(module, obj_name)
+            cls = obj_from_path(spec_type)
             assert issubclass(cls, Spec), "The provided path does not point to an Spec subclass"
             return cls
         else:
@@ -499,6 +498,7 @@ class Spec(object):
         return Spec.dict2spec(kwargs)
 
     def __hash__(self):
+
         return hash(self.key)
 
     def __eq__(self, other):
@@ -515,9 +515,13 @@ class Spec(object):
         kwargs = kwargs.copy()
         kwargs.pop('type')
         for attr, attr_type in cls.get_fields():
-            if isinstance(attr_type, BaseSpecField):
+            if isinstance(attr_type, PrimitiveField) and isinstance(kwargs[attr], basestring) and ':' in kwargs[attr]:
+                kwargs[attr] = obj_from_path(kwargs[attr])
+
+            elif isinstance(attr_type, BaseSpecField):
                 kwargs[attr] = Spec.dict2spec(kwargs[attr])
-            if isinstance(attr_type, SpecCollection):
+
+            elif isinstance(attr_type, SpecCollection):
                 def f(obj):
                     try:
                         return Spec.dict2spec(obj)
@@ -554,3 +558,19 @@ class Spec(object):
             return res
         else:
             return obj
+
+
+def get_import_path(obj):
+    mod = inspect.getmodule(obj)
+    res = '{}:{}'.format(mod.__name__, obj.__name__)
+    return res
+
+
+def obj_from_path(path):
+    full_path, obj_name = path.split(':')
+
+    fromlist = '.'.join(full_path.split('.')[:-1])
+    module = __import__(full_path, fromlist=fromlist)
+
+    obj = getattr(module, obj_name)
+    return obj
