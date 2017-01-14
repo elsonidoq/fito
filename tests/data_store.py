@@ -4,7 +4,6 @@ import tempfile
 import unittest
 
 from fito.data_store import file, dict_ds, mongo
-from fito.data_store.base import Get
 from fito.data_store.mongo import get_collection, global_client
 from spec import get_test_specs
 from operation import get_test_operations
