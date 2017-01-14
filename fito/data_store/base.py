@@ -9,6 +9,20 @@ from fito.operations.decorate import GenericDecorator, operation_from_func
 from fito.specs.base import NumericField, CollectionField, KwargsField
 
 
+class Get(Operation):
+    id = PrimitiveField(0)
+    input = SpecField(1)  # , base_type=BaseDataStore) adding this would create a loop
+
+    def apply(self, runner):
+        return self.input[self]
+
+    def __repr__(self):
+        return '{}'.format(self.id)
+
+    def key(self):
+        return self.id
+
+
 class BaseDataStore(Spec):
     """
     Base class for all data stores, to implement a backend you need to implement
@@ -20,6 +34,7 @@ class BaseDataStore(Spec):
 
     get_cache_size = NumericField(default=0)
     operation_runner = SpecField(default=OperationRunner())
+    get_base_class = SpecField(default=Get)
 
     def __init__(self, *args, **kwargs):
         """
@@ -35,29 +50,29 @@ class BaseDataStore(Spec):
 
         self.operation_runner = self.operation_runner or OperationRunner()
 
-    def get(self, name_or_spec):
+    def get(self, id_or_spec):
         """
         Gets an operation from this data store.
         If you provide a string, it is assumed to be a `Get`
         """
         if self.get_cache is None:
-            return self._get(name_or_spec)
+            return self._get(id_or_spec)
         else:
-            res = self.get_cache.get(name_or_spec)
+            res = self.get_cache.get(id_or_spec)
             if res is FifoCache.no_result:
-                res = self._get(name_or_spec)
-                self.get_cache.set(name_or_spec, res)
+                res = self._get(id_or_spec)
+                self.get_cache.set(id_or_spec, res)
             return res
 
-    def _get(self, name_or_spec):
+    def _get(self, id_or_spec):
         """
         Abstract method, actual implementation of the fetch from the data_store
         """
         raise NotImplementedError()
 
-    def save(self, name_or_spec, object):
+    def save(self, id_or_spec, object):
         """
-        Actual implementation that saves an object associated with the name or operation
+        Actual implementation that saves an object associated with the id or operation
         """
         raise NotImplementedError()
 
@@ -68,36 +83,32 @@ class BaseDataStore(Spec):
         """
         raise NotImplementedError()
 
-    def __getitem__(self, name_or_spec):
-        return self.get(name_or_spec)
+    def __getitem__(self, id_or_spec):
+        return self.get(id_or_spec)
 
-    def __setitem__(self, name_or_spec, object):
-        self.save(name_or_spec, object)
+    def __setitem__(self, id_or_spec, object):
+        self.save(id_or_spec, object)
 
-    def get_or_none(self, name_or_spec):
+    def get_or_none(self, id_or_spec):
         try:
-            return self.get(name_or_spec)
+            return self.get(id_or_spec)
         except KeyError:
             return None
 
-    def __contains__(self, name_or_spec):
-        return self.get_or_none(name_or_spec) is not None
+    def __contains__(self, id_or_spec):
+        return self.get_or_none(id_or_spec) is not None
 
-    def _get_spec(self, name_or_spec):
-        if isinstance(name_or_spec, basestring) or isinstance(name_or_spec, int):
-            return Get(name=name_or_spec, input=self)
-        elif isinstance(name_or_spec, Spec):
-            return name_or_spec
+    def _get_spec(self, id_or_spec):
+        if isinstance(id_or_spec, basestring) or isinstance(id_or_spec, int):
+            return self.get_base_class(id=id_or_spec, input=self)
+        elif isinstance(id_or_spec, Spec):
+            return id_or_spec
         else:
-            raise ValueError("Can not convert {} to a Spec".format(name_or_spec))
+            raise ValueError("Can not convert {} to a Spec".format(id_or_spec))
 
-    def _get_key(self, name_or_spec):
-        operation = self._get_spec(name_or_spec)
-        if isinstance(operation, Get):
-            key = operation.name
-        else:
-            key = operation.key
-        return key
+    def _get_key(self, id_or_spec):
+        operation = self._get_spec(id_or_spec)
+        return operation.key
 
     def get_or_execute(self, operation):
         """
@@ -135,6 +146,7 @@ class BaseDataStore(Spec):
         def autosaved(*args, **kwargs):
             operation = OperationClass(*args, **kwargs)
             return self.get_or_execute(operation)
+
         return autosaved
 
 
@@ -145,7 +157,6 @@ class AutosavedFunction(GenericDecorator):
     args_specifications = KwargsField()
 
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
-
         OperationClass = operation_from_func(
             to_wrap=to_wrap,
             func_to_execute=func_to_execute,
@@ -178,14 +189,3 @@ class AutosavedFunction(GenericDecorator):
                 return func(*args, **kwargs)
 
         return FunctionWrapper()
-
-
-class Get(Operation):
-    name = PrimitiveField(0, base_type=basestring)
-    input = SpecField(1, base_type=BaseDataStore)
-
-    def apply(self, runner):
-        return self.input[self]
-
-    def __repr__(self):
-        return '{}'.format(self.name)
