@@ -66,8 +66,10 @@ class AddOperation(Numeric):
     def __repr__(self):
         return '{} + {}'.format(self.left, self.right)
 
+
 class List(MemoryObject):
     l = PrimitiveField(0)
+
 
 class TestOperation(unittest.TestCase):
     def test_methods(self):
@@ -79,5 +81,4 @@ class TestOperation(unittest.TestCase):
     def test_memory_object(self):
         l = List(range(10))
         d = l.to_dict()
-        import ipdb;ipdb.set_trace()
         assert l.l == List.dict2spec(l.to_dict()).l
