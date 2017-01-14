@@ -58,7 +58,7 @@ class Field(object):
         raise NotImplementedError()
 
     def check_valid_value(self, value):
-        return any([isinstance(value, t) for t in self.allowed_types] )
+        return any([isinstance(value, t) for t in self.allowed_types])
 
     def __eq__(self, other):
         return self is other
