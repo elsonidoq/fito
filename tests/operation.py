@@ -3,10 +3,9 @@ from random import Random
 
 from fito import DictDataStore
 from fito import SpecField
-from fito.data_store.base import Get
 from fito.operations.decorate import as_operation
 from fito.operations.operation import Operation
-from fito.specs.base import InvalidSpecInstance, Spec, BaseSpecField
+from fito.specs.base import InvalidSpecInstance, Spec, BaseSpecField, PrimitiveField
 
 
 @as_operation()
@@ -35,12 +34,12 @@ def get_test_operations():
     ]
 
     input = DictDataStore()
-    numbers = [GetNumber(i, input) for i in xrange(10)]
-    for number in numbers: input[number] = number.name * 2
+    numbers = [Number(i) for i in xrange(10)]
+    for number in numbers: input[number] = number.n * 2
 
-    rnd = Random(42)
-    for i in xrange(10):
-        numbers.append(rnd.choice(numbers) + rnd.choice(numbers))
+    # rnd = Random(42)
+    # for i in xrange(10):
+    #     numbers.append(rnd.choice(numbers) + rnd.choice(numbers))
 
     return res + numbers
 
@@ -50,7 +49,11 @@ class Numeric(Operation):
         return AddOperation(self, other)
 
 
-class GetNumber(Get, Numeric): pass
+class Number(Numeric):
+    n = PrimitiveField(0)
+
+    def apply(self, runner):
+        return self.n
 
 
 class AddOperation(Numeric):
