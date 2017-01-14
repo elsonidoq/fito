@@ -22,6 +22,7 @@ class TestDataStore(unittest.TestCase):
         base_mongo_collection = get_collection(global_client, 'test.test')
         base_mongo_collection.drop()
 
+
         self.data_stores = [
             mongo.MongoHashMap(base_mongo_collection),
             mongo.MongoHashMap(base_mongo_collection.with_get_cache, get_cache_size=10),
@@ -50,7 +51,7 @@ class TestDataStore(unittest.TestCase):
             if isinstance(store, file.FileDataStore):
                 delete(store.path)
             elif isinstance(store, mongo.MongoHashMap):
-                store.coll.drop()
+                store.clean()
 
     def test_iter_items(self):
         for ds in self.data_stores:
