@@ -12,37 +12,6 @@ except ImportError:
     import pickle as cPickle
 
 
-def DecorateClass(decorator):
-    def f(Cls):
-        class NewCls(Cls):
-            def __init__(self, *args, **kwargs):
-                self.oInstance = Cls(*args, **kwargs)
-
-            def __getattribute__(self, s):
-                """
-                this is called whenever any attribute of a NewCls object is accessed. This function first tries to
-                get the attribute off NewCls. If it fails then it tries to fetch the attribute from self.oInstance (an
-                instance of the decorated class). If it manages to fetch the attribute from self.oInstance, and
-                the attribute is an instance method then `time_this` is applied.
-                """
-                try:
-                    x = super(NewCls, self).__getattribute__(s)
-                except AttributeError:
-                    pass
-                else:
-                    return x
-
-                x = self.oInstance.__getattribute__(s)
-                if inspect.ismethod(x):
-                    return decorator(x)  # this is equivalent of just decorating the method with time_this
-                else:
-                    return x
-
-        return NewCls
-
-    return f
-
-
 class GenericDecorator(Spec):
     """
     Abstracts all the boilerplate required to build a decorator that works on functions, instance methods and class methods
@@ -184,15 +153,3 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
             setattr(cls, k, v)
 
     return cls
-
-
-class set_out_data_store(GenericDecorator):
-    data_store = SpecField()
-
-    def create_decorated(self, to_wrap, func_to_execute, f_spec=None):
-        @wraps(to_wrap)
-        def f(*args, **kwargs):
-            res = func_to_execute(*args, **kwargs)
-            if isinstance(res, Operation):
-                res.out_data_store = self.data_store
-            return res
