@@ -4,7 +4,7 @@ from random import Random
 from fito import DictDataStore
 from fito import SpecField
 from fito.operations.decorate import as_operation
-from fito.operations.operation import Operation
+from fito.operations.operation import Operation, MemoryObject
 from fito.specs.base import InvalidSpecInstance, Spec, BaseSpecField, PrimitiveField
 
 
@@ -67,9 +67,17 @@ class AddOperation(Numeric):
         return '{} + {}'.format(self.left, self.right)
 
 
+class List(MemoryObject):
+    l = PrimitiveField(0)
+
+
 class TestOperation(unittest.TestCase):
     def test_methods(self):
         for op in get_test_operations():
             assert isinstance(op, Operation)
             op.execute()
             repr(op)
+
+    def test_memory_object(self):
+        l = List(range(10))
+        assert l.l == List.dict2spec(l.to_dict()).l

@@ -19,6 +19,8 @@ def get_collection(db, name):
 
 
 # collection must be the output from a subclass of get_collection
+# Telling fito that collection is an Operation allows him to automatically execute it before calling this function
+# So we can assume that collection is a already pymongo.Collection
 @as_operation(collection=OperationField(base_type=get_collection), out_type=BaseOp)
 def get_data(collection, query):
     return list(collection.find(query))
@@ -30,7 +32,6 @@ def filter_odd(data):
     return [e for e in data if e['id'] % 2 == 0]
 
 
-# data must be a OperationField, but I'm not specifying from which base type, it could be any
 @as_operation(data=OperationField, out_type=BaseOp)
 def sum_all(data):
     return sum([e['id'] for e in data])
