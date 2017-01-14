@@ -1,8 +1,6 @@
 import json
-
 from StringIO import StringIO
 from functools import total_ordering
-from types import FunctionType
 
 from fito.specs.utils import recursive_map, is_iterable, general_iterator
 from memoized_property import memoized_property
@@ -61,6 +59,9 @@ class Field(object):
     def check_valid_value(self, value):
         return any([isinstance(value, t) for t in self.allowed_types])
 
+    def __eq__(self, other):
+        return self is other
+
 
 class PrimitiveField(Field):
     """
@@ -70,7 +71,6 @@ class PrimitiveField(Field):
     @property
     def allowed_types(self):
         return [object]
-
 
 class CollectionField(PrimitiveField):
     def __len__(self): return
@@ -173,6 +173,25 @@ class SpecCollection(Field):
         return True
 
 
+class KwargsField(SpecCollection):
+    def __init__(self):
+        super(KwargsField, self).__init__(default={})
+
+    @property
+    def allowed_types(self):
+        return [object]
+
+
+class ArgsField(SpecCollection):
+    def __init__(self):
+        super(ArgsField, self).__init__(default=tuple())
+
+    @property
+    def allowed_types(self):
+        return [object]
+
+
+
 class SpecMeta(type):
     def __new__(cls, name, bases, dct):
         """
@@ -239,14 +258,25 @@ class Spec(object):
         fields = dict(type(self).get_fields())
 
         #
-        pos2name = {attr_type.pos: attr_name for attr_name, attr_type in fields.iteritems() if
-                    attr_type.pos is not None}
+        pos2name = {}
+        kwargs_field = None
+        args_field = None
+        for attr_name, attr_type in fields.iteritems():
+            if attr_type.pos is not None:
+                pos2name[attr_type.pos] = attr_name
+
+            elif isinstance(attr_type, KwargsField):
+                kwargs_field = attr_name
+
+            elif isinstance(attr_type, ArgsField):
+                args_field = attr_name
+
         if len(pos2name) == 0:
             max_nargs = 0
         else:
             max_nargs = max(pos2name) + 1 + len(
                 [attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
-        if len(args) > max_nargs:
+        if len(args) > max_nargs and args_field is None:
             raise InvalidSpecInstance(
                 (
                     "This spec was instanced with {given_args} positional arguments, but I only know how "
@@ -255,17 +285,37 @@ class Spec(object):
                 ).format(given_args=len(args), specified_args=max_nargs)
             )
 
+        # These guys are the ones that are going to be passed to the instance
+        args_param_value = []
+        kwargs_param_value = {}
+
         for i, arg in enumerate(args):
-            kwargs[pos2name[i]] = arg
+            if args_field is not None and i >= max_nargs:
+                args_param_value.append(arg)
+            else:
+                kwargs[pos2name[i]] = arg
 
         for attr, attr_type in fields.iteritems():
             if attr_type.default is not _no_default and attr not in kwargs:
                 kwargs[attr] = attr_type.default
 
+        if kwargs_field is not None:
+            kwargs_param_value = {
+                attr: attr_type
+                for attr, attr_type in kwargs.iteritems()
+                if attr not in fields
+            }
+
+            kwargs = {
+                attr: attr_type
+                for attr, attr_type in kwargs.iteritems()
+                if attr in fields and attr != kwargs_field and attr != args_field
+            }
+
         if len(kwargs) > len(fields):
             raise InvalidSpecInstance("Class %s does not take the following arguments: %s" % (
                 type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
-        elif len(kwargs) < len(fields):
+        elif len(kwargs) < len(fields) - (args_field is not None) - (kwargs_field is not None):
             raise InvalidSpecInstance("Missing arguments for class %s: %s" % (
                 type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
 
@@ -281,6 +331,12 @@ class Spec(object):
         for attr in kwargs:
             if attr not in fields:
                 raise InvalidSpecInstance("Received extra parameter {}".format(attr))
+
+        if args_field is not None:
+            setattr(self, args_field, tuple(args_param_value))
+
+        if kwargs_field is not None:
+            setattr(self, kwargs_field, kwargs_param_value)
 
         for attr, attr_type in kwargs.iteritems():
             setattr(self, attr, attr_type)
