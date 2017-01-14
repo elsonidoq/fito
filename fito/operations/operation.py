@@ -6,10 +6,10 @@ class Operation(Spec):
     out_data_store = SpecField(default=None)
 
     def execute(self, runner=None):
-        res = self.apply(runner or OperationRunner())
-        if self.out_data_store is not None:
-            self.out_data_store[self] = res
-        return res
+        # Helps having an optional need for a runner
+        return (runner or OperationRunner()).execute(self)
 
     def apply(self, runner):
         raise NotImplementedError()
+
+
