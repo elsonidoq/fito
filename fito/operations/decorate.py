@@ -1,9 +1,10 @@
 from __future__ import print_function
 
 import inspect
+from functools import wraps
 
 from fito.operations.operation import Operation
-from fito.specs.base import PrimitiveField, BaseSpecField, Spec, KwargsField, SpecField
+from fito.specs.base import PrimitiveField, BaseSpecField, Spec, KwargsField, SpecField, get_import_path
 
 try:
     import cPickle
@@ -29,6 +30,7 @@ class GenericDecorator(Spec):
 
         first_arg = instance if self.method_type == 'instance' else owner
 
+        @wraps(self.func)
         def new_f(*args, **kwargs):
             return self.func(first_arg, *args, **kwargs)
 
@@ -84,7 +86,6 @@ class as_operation(GenericDecorator):
             first_arg=first_arg
         )
 
-
 def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_specifications, f_spec=None,
                         method_type=None, first_arg=None):
     """
@@ -129,6 +130,11 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
 
         return this_args
 
+    def to_dict(self):
+        res = super(out_type, self).to_dict()
+        res['type'] = get_import_path(func_to_execute)
+        return res
+
     def apply(self, runner):
         this_args = self.get_this_args(runner)
         return func_to_execute(**this_args)
@@ -152,6 +158,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     cls_attrs['apply'] = apply
     cls_attrs['__repr__'] = __repr__
     cls_attrs['get_this_args'] = get_this_args
+    cls_attrs['to_dict'] = to_dict
 
     out_name = out_name or to_wrap.__name__
     cls = Operation.type2spec_class(out_name)
