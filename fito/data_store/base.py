@@ -1,4 +1,6 @@
 from functools import wraps
+import traceback
+import warnings
 
 from fito import Operation
 from fito import PrimitiveField
@@ -83,7 +85,7 @@ class BaseDataStore(Spec):
     def __contains__(self, spec):
         return self.get_or_none(spec) is not None
 
-    def get_or_execute(self, operation):
+    def get_or_execute(self, operation, operation_runner=None):
         """
         Base function for all autocaching
 
@@ -91,10 +93,18 @@ class BaseDataStore(Spec):
         :return:
         """
         if operation not in self:
-            res = self.operation_runner.execute(operation)
+            res = (operation_runner or self.operation_runner).execute(operation)
             self[operation] = res
         else:
-            res = self.get(operation)
+            try:
+                res = self.get(operation)
+            except Exception, e:
+                warnings.warn("There was an error loading from cache, executing again...")
+                traceback.print_exc()
+
+                res = (operation_runner or self.operation_runner).execute(operation)
+                self[operation] = res
+
         return res
 
     def cache(self, **kwargs):
