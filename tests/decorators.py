@@ -1,8 +1,8 @@
+import unittest
 from fito import DictDataStore
 from fito import Operation
 from fito import OperationField
 from fito import as_operation
-from psycopg2.tests import unittest
 from pymongo import MongoClient
 
 
