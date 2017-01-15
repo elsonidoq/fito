@@ -1,11 +1,10 @@
 import unittest
-from random import Random
 
 from fito import DictDataStore
 from fito import SpecField
 from fito.operations.decorate import as_operation
 from fito.operations.operation import Operation, MemoryObject
-from fito.specs.base import InvalidSpecInstance, Spec, BaseSpecField, PrimitiveField
+from fito.specs.base import PrimitiveField
 
 
 @as_operation()
