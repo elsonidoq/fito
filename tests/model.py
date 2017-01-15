@@ -1,6 +1,7 @@
 import unittest
 
 from fito.model import Model, ModelParameter, ModelField
+from fito.model.scikit_learn import LogisticRegression, LinearRegression, GradientBoostingClassifier
 
 
 class Stage1(Model): pass
@@ -48,3 +49,10 @@ class TestModel(unittest.TestCase):
 
         assert sorted(Pepe.get_hyper_parameters_grid()) == sorted(expected_result)
 
+    def test_scikit_learn(self):
+        # just make sure it executes
+        for model_class in LogisticRegression, LinearRegression, GradientBoostingClassifier:
+            m = model_class()
+            m.to_dict()
+            m.execute()
+            model_class.get_hyper_parameters_grid()
