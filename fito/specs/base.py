@@ -390,7 +390,7 @@ class Spec(object):
         return super(Spec, self).__setattr__(key, value)
 
     def to_dict(self):
-        res = {'type': type(self).__name__}
+        res = {'type': get_import_path(type(self))}
 
         for attr, attr_type in type(self).get_fields():
             val = getattr(self, attr)
