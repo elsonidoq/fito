@@ -3,7 +3,7 @@ from itertools import product
 
 from fito import Operation
 from fito.specs.base import PrimitiveField, _no_default, BaseSpecField, SpecField, Field, Spec
-from sklearn.grid_search import ParameterGrid
+from sklearn.model_selection import ParameterGrid
 
 
 class ModelParameter(PrimitiveField):
