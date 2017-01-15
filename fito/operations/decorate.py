@@ -3,7 +3,7 @@ from __future__ import print_function
 import inspect
 
 from fito.operations.operation import Operation
-from fito.specs.base import PrimitiveField, BaseSpecField, Spec, KwargsField
+from fito.specs.base import PrimitiveField, BaseSpecField, Spec, KwargsField, SpecField
 
 try:
     import cPickle
@@ -107,6 +107,8 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
 
         if arg in args_specifications:
             spec = args_specifications[arg]
+            if inspect.isclass(spec) and issubclass(spec, Spec):
+                spec = SpecField(base_type=spec)
             # It can be either a class, or the instance itself
             if inspect.isclass(spec) or inspect.isfunction(spec): spec = spec()
 
@@ -120,7 +122,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         this_args = {}
         for k, v in attrs.iteritems():
             value = getattr(self, k)
-            if isinstance(v, BaseSpecField) and runner is not None:
+            if isinstance(v, BaseSpecField) and runner is not None and isinstance(value, Operation):
                 value = value.execute(runner)
 
             this_args[k] = value

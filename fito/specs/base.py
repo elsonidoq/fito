@@ -58,7 +58,7 @@ class Field(object):
         raise NotImplementedError()
 
     def check_valid_value(self, value):
-        return any([isinstance(value, t) for t in self.allowed_types] )
+        return any([isinstance(value, t) for t in self.allowed_types])
 
     def __eq__(self, other):
         return self is other
@@ -155,6 +155,7 @@ def SpecField(pos=None, default=_no_default, base_type=None):
         return_type = BaseSpecField
 
     return return_type(pos=pos, default=default, base_type=base_type)
+
 
 class SpecCollection(Field):
     """
@@ -275,7 +276,7 @@ class Spec(object):
             max_nargs = 0
         else:
             max_nargs = (
-                max(pos2name) + 1 #+
+                max(pos2name) + 1  # +
                 # len([attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
             )
         if len(args) > max_nargs and args_field is None:
@@ -390,6 +391,7 @@ class Spec(object):
 
     def to_dict(self):
         res = {'type': type(self).__name__}
+
         for attr, attr_type in type(self).get_fields():
             val = getattr(self, attr)
 
@@ -488,7 +490,10 @@ class Spec(object):
     def dict2spec(dict):
         cls = Spec.type2spec_class(dict['type'])
         if cls is None:
-            raise ValueError('Unknown spec type')
+            raise ValueError(
+                "Unknown spec type."
+                "This might happen if you are referencing an Spec that hasn't been imported"
+            )
 
         return cls._from_dict(dict)
 
@@ -503,7 +508,7 @@ class Spec(object):
         return hash(self.key)
 
     def __eq__(self, other):
-        return self.key == other.key
+        return type(self).__name__ == type(other).__name__ and self.key == other.key
 
     def __lt__(self, other):
         return self.key < other.key
