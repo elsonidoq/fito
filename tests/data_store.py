@@ -22,7 +22,6 @@ class TestDataStore(unittest.TestCase):
         base_mongo_collection = get_collection(global_client, 'test.test')
         base_mongo_collection.drop()
 
-
         self.data_stores = [
             mongo.MongoHashMap(base_mongo_collection),
             mongo.MongoHashMap(base_mongo_collection.with_get_cache, get_cache_size=10),
@@ -35,7 +34,7 @@ class TestDataStore(unittest.TestCase):
             dict_ds.DictDataStore(),
         ]
 
-        # This is just because of MongoHashMap
+        # This is just because MongoHashMap does not handle ints on dictionary keys
         test_specs = get_test_specs(only_lists=True)
         test_operations = get_test_operations()
         self.indexed_operations = test_operations[:len(test_operations) / 2]
