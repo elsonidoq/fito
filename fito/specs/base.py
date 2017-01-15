@@ -539,7 +539,7 @@ class Spec(object):
         args = tuple()
 
         for attr, attr_type in cls.get_fields():
-            val = kwargs[attr]
+            val = kwargs.get(attr, attr_type.default)
 
             if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and ':' in kwargs[attr]:
                 kwargs[attr] = obj_from_path(val)
