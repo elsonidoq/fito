@@ -64,6 +64,17 @@ class Field(object):
         return self is other
 
 
+class ToggleField(Field):
+    """
+    Useful tu change subtleness on specs that you don't want have impact on
+    the serialized spec
+    """
+
+    @property
+    def allowed_types(self):
+        return [object]
+
+
 class PrimitiveField(Field):
     """
     Specifies a Field whose value is going to be a python object
@@ -499,9 +510,14 @@ class Spec(object):
 
     @staticmethod
     def key2spec(str):
-        if str.startswith('/'): str = str[1:]
-        kwargs = Spec.__key2dict(json.loads(str))
-        return Spec.dict2spec(kwargs)
+        try:
+            if str.startswith('/'): str = str[1:]
+            kwargs = Spec.__key2dict(json.loads(str))
+            return Spec.dict2spec(kwargs)
+        except ValueError, e:
+            raise e
+        except Exception, e:
+            raise ValueError(e.args)
 
     def __hash__(self):
 
