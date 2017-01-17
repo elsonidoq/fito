@@ -577,6 +577,19 @@ class Spec(object):
 
 
 def get_import_path(obj, *attrs):
+    """
+    Builds a string representing an object.
+    The default behaviour is the same than the import statement. Additionaly, you can specify attributes.
+
+    For example:
+    >>> get_import_path(Spec)
+    'fito.specs.base:Spec'
+
+    >>> get_import_path(Spec, 'dict2spec')
+    'fito.specs.base:Spec.dict2spec'
+
+    The inverse function of get_import_path is obj_from_path
+    """
     mod = inspect.getmodule(obj)
     res = '{}:{}'.format(mod.__name__, obj.__name__)
     if attrs:
@@ -586,18 +599,35 @@ def get_import_path(obj, *attrs):
 
 
 def obj_from_path(path):
+    """
+    Retrieves an object from a given import path. The format is slightly different from the standard python one in
+    order to be more expressive.
+
+    Examples:
+    >>> obj_from_path('fito')
+    <module 'fito'>
+
+    >>> obj_from_path('fito.specs')
+    <module 'fito.specs'>
+
+    >>> obj_from_path('fito.specs.base:Spec')
+    fito.specs.base.Spec
+
+    >>> obj_from_path('fito.specs.base:Spec.dict2spec')
+    <function fito.specs.base.dict2spec>
+    """
     parts = path.split(':')
     assert len(parts) <= 2
 
     obj_path = []
     full_path = parts[0]
     if len(parts) == 2:
-        obj_path = parts[1]
+        obj_path = parts[1].split('.')
 
     fromlist = '.'.join(full_path.split('.')[:-1])
     module = __import__(full_path, fromlist=fromlist)
-    
+
     obj = module
-    for attr in obj_path.split('.'): obj = getattr(obj, attr)
+    for attr in obj_path: obj = getattr(obj, attr)
 
     return obj
