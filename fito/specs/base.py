@@ -576,17 +576,28 @@ class Spec(object):
             return obj
 
 
-def get_import_path(obj):
+def get_import_path(obj, *attrs):
     mod = inspect.getmodule(obj)
     res = '{}:{}'.format(mod.__name__, obj.__name__)
+    if attrs:
+        for attr in attrs:
+            res = '{}.{}'.format(res, attr)
     return res
 
 
 def obj_from_path(path):
-    full_path, obj_name = path.split(':')
+    parts = path.split(':')
+    assert len(parts) <= 2
+
+    obj_path = []
+    full_path = parts[0]
+    if len(parts) == 2:
+        obj_path = parts[1]
 
     fromlist = '.'.join(full_path.split('.')[:-1])
     module = __import__(full_path, fromlist=fromlist)
+    
+    obj = module
+    for attr in obj_path.split('.'): obj = getattr(obj, attr)
 
-    obj = getattr(module, obj_name)
     return obj
