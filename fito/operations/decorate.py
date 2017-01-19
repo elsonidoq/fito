@@ -71,7 +71,7 @@ class as_operation(GenericDecorator):
     method_type = PrimitiveField(default=None)
     out_type = PrimitiveField(default=Operation)
     out_name = PrimitiveField(default=None)
-    out_data_store = SpecField(default=None)
+    cache_on = SpecField(default=None)
     args_specifications = KwargsField()
 
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None, first_arg=None):
@@ -86,9 +86,9 @@ class as_operation(GenericDecorator):
             method_type=self.method_type,
             first_arg=first_arg
         )
-        
-        if self.out_data_store is not None:
-            OperationClass.out_data_store = self.out_data_store
+
+        if self.cache_on is not None:
+            OperationClass.out_data_store = self.cache_on
 
         return OperationClass
 
