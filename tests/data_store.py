@@ -1,12 +1,15 @@
+import inspect
 import os
 import shutil
 import tempfile
 import unittest
+from copy import deepcopy
 
+from fito import as_operation
 from fito.data_store import file, dict_ds, mongo
 from fito.data_store.mongo import get_collection, global_client
-from spec import get_test_specs
 from operation import get_test_operations
+from spec import get_test_specs
 
 
 def delete(path):
@@ -36,14 +39,16 @@ class TestDataStore(unittest.TestCase):
 
         # This is just because MongoHashMap does not handle ints on dictionary keys
         test_specs = get_test_specs(only_lists=True)
-        test_operations = get_test_operations()
+        test_operations = get_test_operations(only_serializable=True)
         self.indexed_operations = test_operations[:len(test_operations) / 2]
         self.indexed_specs = test_specs[:len(test_specs) / 2] + self.indexed_operations
         self.not_indexed_specs = test_specs[len(test_specs) / 2:] + test_operations[len(test_operations) / 2:]
 
-        for ds in self.data_stores:
-            for i, spec in enumerate(self.indexed_specs):
-                ds[spec] = i
+        self.cached_functions = []
+        for i, ds in enumerate(self.data_stores):
+            # Populate the data stores
+            for j, spec in enumerate(self.indexed_specs):
+                ds[spec] = j
 
     def tearDown(self):
         for store in self.data_stores:
@@ -75,13 +80,19 @@ class TestDataStore(unittest.TestCase):
             assert sorted(ds.iterkeys()) == sorted(self.indexed_specs)
 
     def test_cache(self):
-        def func(i):
-            return i
+        orig_func = func
 
-        for ds in self.data_stores:
-            cached_func = ds.cache()(func)
-            computed_values = map(cached_func, xrange(10))
+        module = inspect.getmodule(TestDataStore)
+        for i, ds in enumerate(self.data_stores):
+            OperationClass = as_operation(out_data_store=ds)(orig_func)
+            setattr(module, 'func', OperationClass)
+
             for i in xrange(10):
-                assert cached_func.operation_class(i) in ds
+                op = OperationClass(i)
+                assert op not in ds
+                op.execute()
+                assert op in ds
 
-            assert computed_values == map(cached_func, xrange(10))
+
+def func(i):
+    return i

@@ -5,7 +5,7 @@ from fito import DictDataStore
 from fito import SpecField
 from fito.operations.decorate import as_operation
 from fito.operations.operation import Operation, MemoryObject
-from fito.specs.base import InvalidSpecInstance, Spec, BaseSpecField, PrimitiveField
+from fito.specs.base import PrimitiveField
 
 
 @as_operation()
@@ -25,21 +25,22 @@ class Test(object):
     def op2(cls, op): return 1
 
 
-def get_test_operations():
+def get_test_operations(only_serializable=True):
     res = [
         base_case(),
         f(base_case()),
-        Test().op1(base_case()),
         Test.op2(base_case()),
     ]
+    if not only_serializable:
+        res.append(Test().op1(base_case()))
 
     input = DictDataStore()
     numbers = [Number(i) for i in xrange(10)]
     for number in numbers: input[number] = number.n * 2
-
-    # rnd = Random(42)
-    # for i in xrange(10):
-    #     numbers.append(rnd.choice(numbers) + rnd.choice(numbers))
+    #
+    rnd = Random(42)
+    for i in xrange(10):
+        numbers.append(rnd.choice(numbers) + rnd.choice(numbers))
 
     return res + numbers
 
