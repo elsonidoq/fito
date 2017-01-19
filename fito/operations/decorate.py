@@ -92,6 +92,26 @@ class as_operation(GenericDecorator):
 
         return OperationClass
 
+    @staticmethod
+    def get_current_operation():
+        """
+        Should be called inside a function decorated with as_operation
+        """
+        # f_back brings you to the calling function, f_back brings you to the apply method of the
+        # dynamically created operation
+        frame = inspect.currentframe()
+        try:
+            res = frame.f_back.f_back.f_locals['self']
+            if not isinstance(res, Operation):
+                raise RuntimeError(
+                    "This function should be called inside an operation created with the as_operation decorator"
+                )
+            del frame
+            return res
+        finally:
+            # Avoid reference cycle
+            del frame
+
 
 def get_default_values(f_spec):
     """
@@ -114,8 +134,6 @@ def print_fields_from_func(callable):
 
         default_str = ', default={}'.format(default_values[arg]) if arg in default_values else ''
         print('{} = PrimitiveField({}{})'.format(arg, i, default_str))
-
-
 
 
 def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_specifications, f_spec=None,
@@ -144,6 +162,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
             spec.pos = len(attrs)
         else:
             spec = PrimitiveField(len(attrs))
+
         if arg in default_values: spec.default = default_values[arg]
         attrs[arg] = spec
 
