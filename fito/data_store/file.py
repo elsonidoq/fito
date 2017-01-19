@@ -119,7 +119,7 @@ class FileDataStore(BaseDataStore):
         subdir = self._get_subdir(spec)
         try:
             return self.serializer.load(subdir)
-        except:
+        except Exception:
             raise KeyError('{} not found'.format(spec))
 
     def save(self, spec, series):
