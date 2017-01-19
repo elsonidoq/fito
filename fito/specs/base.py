@@ -147,16 +147,30 @@ class BaseSpecField(Field):
     Specifies a Field whose value will be an Spec
     """
 
-    def __init__(self, pos=None, default=_no_default, base_type=None, *args, **kwargs):
+    def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, *args, **kwargs):
         super(BaseSpecField, self).__init__(pos=pos, default=default, *args, **kwargs)
         self.base_type = base_type
+        self.serialize = serialize
 
     @property
     def allowed_types(self):
         return [Spec if self.base_type is None else self.base_type]
 
 
-def SpecField(pos=None, default=_no_default, base_type=None):
+def SpecField(pos=None, default=_no_default, base_type=None, serialize=True):
+    """
+    Builds a SpecField
+
+    :param pos: Position on *args
+    :param default: Default value
+    :param base_type: Base type, it does some type checkig + avoids some warnings from IntelliJ
+    :param serialize: Whether this spec field should be included in the serialization of the object
+
+    :return:
+    """
+    if serialize and default is _no_default:
+        raise RuntimeError("If serialize == False, the field should have a default value")
+
     if base_type is not None:
         assert issubclass(base_type, Spec)
         return_type = type(
@@ -418,7 +432,7 @@ class Spec(object):
 
                 res[attr] = val
 
-            elif isinstance(attr_type, BaseSpecField):
+            elif isinstance(attr_type, BaseSpecField) and attr_type.serialize:
                 res[attr] = val if val is None else val.to_dict()
 
             elif isinstance(attr_type, SpecCollection):
