@@ -1,9 +1,10 @@
 from __future__ import print_function
 
 import inspect
+from functools import wraps
 
 from fito.operations.operation import Operation
-from fito.specs.base import PrimitiveField, BaseSpecField, Spec, KwargsField, SpecField
+from fito.specs.base import PrimitiveField, BaseSpecField, Spec, KwargsField, SpecField, get_import_path
 
 try:
     import cPickle
@@ -29,6 +30,7 @@ class GenericDecorator(Spec):
 
         first_arg = instance if self.method_type == 'instance' else owner
 
+        @wraps(self.func)
         def new_f(*args, **kwargs):
             return self.func(first_arg, *args, **kwargs)
 
@@ -69,11 +71,12 @@ class as_operation(GenericDecorator):
     method_type = PrimitiveField(default=None)
     out_type = PrimitiveField(default=Operation)
     out_name = PrimitiveField(default=None)
+    out_data_store = SpecField(default=None)
     args_specifications = KwargsField()
 
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None, first_arg=None):
         f_spec = f_spec or inspect.getargspec(to_wrap)
-        return operation_from_func(
+        OperationClass = operation_from_func(
             to_wrap=to_wrap,
             func_to_execute=func_to_execute,
             out_type=self.out_type,
@@ -83,6 +86,11 @@ class as_operation(GenericDecorator):
             method_type=self.method_type,
             first_arg=first_arg
         )
+        
+        if self.out_data_store is not None:
+            OperationClass.out_data_store = self.out_data_store
+
+        return OperationClass
 
 
 def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_specifications, f_spec=None,
@@ -129,6 +137,20 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
 
         return this_args
 
+    def to_dict(self):
+        res = super(out_type, self).to_dict()
+
+        if method_type == 'instance':
+            raise RuntimeError(
+                "Operations created from @as_operation(method_type='instance') can not be converted to dict"
+            )
+        elif method_type == 'class':
+            res['type'] = get_import_path(first_arg, func_to_execute.__name__)
+        else:
+            res['type'] = get_import_path(func_to_execute)
+
+        return res
+
     def apply(self, runner):
         this_args = self.get_this_args(runner)
         return func_to_execute(**this_args)
@@ -152,6 +174,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     cls_attrs['apply'] = apply
     cls_attrs['__repr__'] = __repr__
     cls_attrs['get_this_args'] = get_this_args
+    cls_attrs['to_dict'] = to_dict
 
     out_name = out_name or to_wrap.__name__
     cls = Operation.type2spec_class(out_name)

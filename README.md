@@ -20,26 +20,28 @@ There are two implementations, one that uses the file system and
 anotherone that uses [MongoDB](https://www.mongodb.com/).
 
 One nice combination of having this abstraction, is that we can do automatic caching.
-That can be performed with both of these decorators
+That can be performed just by linking operations and data stores together 
 
-* `as_operation` Decorator that turns any function into a subclass of `Operation`
-* `DataStore.cache`: Decorator to turn automatic caching on any function. 
-Creates an operation out of the function and the data store is used for caching the results. 
-* Both decorators can be used for functions, instance and class methods.
+Besides that, there's a very helpful decorator, `as_operation` that 
+turns any function into a subclass of `Operation`.
 
 # How does it look like?
 It looks like this
 ```
-from fito.data_store.file import FileDataStore
-ds = FileDataStore('test') # can be reeplaced by MongoHashMap
+from fito.data_store import DictDataStore
+from fito import as_operation
 
-@ds.cache()
+ds = DictDataStore() # Can be any implementation of data store
+
+@as_operation(out_data_store=ds)
 def f(x, y=1):
-    print "executed"
     return x + y
+
+f(1).execute() # executed
+f(1).execute() # retrieved from cache
 ```
 
-That code is enough to cache the executions of `f` into the file system
+That code is enough to cache the executions of `f` into memory
 
 You can see more examples here:
 * A [simple execution flow](https://github.com/elsonidoq/fito/blob/master/examples/Simple%20Flow.ipynb): 
