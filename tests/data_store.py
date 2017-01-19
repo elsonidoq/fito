@@ -84,7 +84,7 @@ class TestDataStore(unittest.TestCase):
 
         module = inspect.getmodule(TestDataStore)
         for i, ds in enumerate(self.data_stores):
-            OperationClass = as_operation(out_data_store=ds)(orig_func)
+            OperationClass = as_operation(cache_on=ds)(orig_func)
             setattr(module, 'func', OperationClass)
 
             for i in xrange(10):
