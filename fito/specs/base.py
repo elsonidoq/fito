@@ -3,8 +3,10 @@ import json
 from StringIO import StringIO
 from functools import total_ordering
 
-from fito.specs.utils import recursive_map, is_iterable, general_iterator
 from memoized_property import memoized_property
+
+from fito.specs.utils import recursive_map, is_iterable, general_iterator
+
 
 # it's a constant that is different from every other object
 _no_default = object()
@@ -339,8 +341,8 @@ class Spec(object):
             if val is None: continue
             if not attr_type.check_valid_value(val):
                 raise InvalidSpecInstance(
-                    "Invalid value for parameter {}. Received {}, expected {}".format(attr, val,
-                                                                                      attr_type.allowed_types)
+                    "Invalid value for parameter {} in {}. Received {}, expected {}".format(
+                        attr, type(self).__name__, val, attr_type.allowed_types)
                 )
 
         for attr in kwargs:
