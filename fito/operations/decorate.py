@@ -106,7 +106,6 @@ class as_operation(GenericDecorator):
                 raise RuntimeError(
                     "This function should be called inside an operation created with the as_operation decorator"
                 )
-            del frame
             return res
         finally:
             # Avoid reference cycle
