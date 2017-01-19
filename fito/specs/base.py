@@ -216,6 +216,7 @@ class SpecMeta(type):
         res = type.__new__(cls, name, bases, dct)
         fields = dict(res.get_fields())
         fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
+
         if fields_pos != range(len(fields_pos)):
             raise ValueError("Bad `pos` for attribute %s" % name)
 
@@ -400,13 +401,16 @@ class Spec(object):
         if hasattr(self, '_key'): del self._key
         return super(Spec, self).__setattr__(key, value)
 
-    def to_dict(self):
+    def to_dict(self, include_toggle_fields=False):
+        """
+        :param include_toggles: Wether to include or not toggle_fields, default=False
+        """
         res = {'type': type(self).__name__}
 
         for attr, attr_type in type(self).get_fields():
             val = getattr(self, attr)
 
-            if isinstance(attr_type, PrimitiveField):
+            if isinstance(attr_type, PrimitiveField) or (isinstance(attr_type, ToggleField) and include_toggle_fields):
                 if inspect.isfunction(val) or inspect.isclass(val):
                     val = get_import_path(val)
 
@@ -424,6 +428,15 @@ class Spec(object):
 
                 res[attr] = recursive_map(val, f)
 
+        return res
+
+    def to_kwargs(self, include_toggle_fields=True, include_out_data_store=False):
+        """
+        Useful function to call f(**spec.to_kwargs())
+        """
+        res = self.to_dict(include_toggle_fields=include_toggle_fields)
+        res.pop('type')
+        if not include_out_data_store: res.pop('out_data_store')
         return res
 
     # This is a little bit hacky, but I just want to write this short
