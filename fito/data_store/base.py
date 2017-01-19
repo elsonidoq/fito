@@ -8,7 +8,7 @@ from fito import Spec
 from fito import SpecField
 from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import GenericDecorator, operation_from_func
-from fito.specs.base import NumericField, KwargsField
+from fito.specs.base import NumericField, KwargsField, ToggleField
 
 
 class BaseDataStore(Spec):
@@ -22,6 +22,7 @@ class BaseDataStore(Spec):
 
     get_cache_size = NumericField(default=0)
     operation_runner = SpecField(default=OperationRunner())
+    verbose = ToggleField(default=False)
 
     def __init__(self, *args, **kwargs):
         """
@@ -98,6 +99,8 @@ class BaseDataStore(Spec):
         else:
             try:
                 res = self.get(operation)
+                if self.verbose:
+                    print "Getting cached version or {}".format(operation)
             except Exception, e:
                 warnings.warn("There was an error loading from cache, executing again...")
                 traceback.print_exc()

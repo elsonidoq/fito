@@ -34,8 +34,8 @@ class MemoryObject(Operation):
     def apply(self, runner):
         return self.object
 
-    def to_dict(self):
-        res = super(MemoryObject, self).to_dict()
+    def to_dict(self, include_toggle_fields=False):
+        res = super(MemoryObject, self).to_dict(include_toggle_fields=include_toggle_fields)
         res[self.object_field_name] = id(self.object)
         return res
 

@@ -68,8 +68,8 @@ class FileDataStore(BaseDataStore):
 
             try:
                 op = Spec.key2spec(key)
-            except ValueError, e:  # there might be a key that is not a valid json
-                if e.args[0] == 'Unknown spec type': raise e
+            except Exception, e:  # there might be a key that is not a valid json
+                if len(e.args) > 0 and isinstance(e.args[0], basestring) and e.args[0].startswith('Unknown spec type'): raise e
                 continue
 
             yield op

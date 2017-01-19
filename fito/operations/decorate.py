@@ -93,6 +93,31 @@ class as_operation(GenericDecorator):
         return OperationClass
 
 
+def get_default_values(f_spec):
+    """
+    Returns a mapping from a function spec (output of inspect.getargspec)
+    """
+    if f_spec.defaults is None:
+        default_values = {}
+    else:
+        args_with_defaults = f_spec.args[-len(f_spec.defaults):]
+        default_values = dict(zip(args_with_defaults, f_spec.defaults))
+    return default_values
+
+
+def print_fields_from_func(callable):
+    f_spec = inspect.getargspec(callable)
+    default_values = get_default_values(f_spec)
+    for i, arg in enumerate(f_spec.args):
+        if arg == 'self': continue
+        i -= f_spec.args[0] == 'self'
+
+        default_str = ', default={}'.format(default_values[arg]) if arg in default_values else ''
+        print('{} = PrimitiveField({}{})'.format(arg, i, default_str))
+
+
+
+
 def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_specifications, f_spec=None,
                         method_type=None, first_arg=None):
     """
@@ -102,11 +127,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     :return:
     """
     f_spec = f_spec or inspect.getargspec(to_wrap)
-    if f_spec.defaults is None:
-        default_values = {}
-    else:
-        args_with_defaults = f_spec.args[-len(f_spec.defaults):]
-        default_values = dict(zip(args_with_defaults, f_spec.defaults))
+    default_values = get_default_values(f_spec)
 
     attrs = {}
     for i, arg in enumerate(f_spec.args):

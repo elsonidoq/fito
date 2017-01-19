@@ -2,6 +2,7 @@ import unittest
 
 from fito.model import Model, ModelParameter, ModelField
 from fito.model.scikit_learn import LogisticRegression, LinearRegression, GradientBoostingClassifier
+from fito.model.word2vec import Word2Vec
 
 
 class Stage1(Model): pass
@@ -56,3 +57,11 @@ class TestModel(unittest.TestCase):
             m.to_dict()
             m.execute()
             model_class.get_hyper_parameters_grid()
+
+    def test_word2vec(self):
+        sentence = map(str,range(10))
+        sentences = [sentence] * 100
+        model = Word2Vec(sentences).execute()
+
+        assert sorted(model.vocab.keys()) == sentence
+

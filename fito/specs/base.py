@@ -64,6 +64,17 @@ class Field(object):
         return self is other
 
 
+class ToggleField(Field):
+    """
+    Useful tu change subtleness on specs that you don't want have impact on
+    the serialized spec
+    """
+
+    @property
+    def allowed_types(self):
+        return [object]
+
+
 class PrimitiveField(Field):
     """
     Specifies a Field whose value is going to be a python object
@@ -205,6 +216,7 @@ class SpecMeta(type):
         res = type.__new__(cls, name, bases, dct)
         fields = dict(res.get_fields())
         fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
+
         if fields_pos != range(len(fields_pos)):
             raise ValueError("Bad `pos` for attribute %s" % name)
 
@@ -389,13 +401,16 @@ class Spec(object):
         if hasattr(self, '_key'): del self._key
         return super(Spec, self).__setattr__(key, value)
 
-    def to_dict(self):
+    def to_dict(self, include_toggle_fields=False):
+        """
+        :param include_toggles: Wether to include or not toggle_fields, default=False
+        """
         res = {'type': get_import_path(type(self))}
 
         for attr, attr_type in type(self).get_fields():
             val = getattr(self, attr)
 
-            if isinstance(attr_type, PrimitiveField):
+            if isinstance(attr_type, PrimitiveField) or (isinstance(attr_type, ToggleField) and include_toggle_fields):
                 if inspect.isfunction(val) or inspect.isclass(val):
                     val = get_import_path(val)
 
@@ -413,6 +428,15 @@ class Spec(object):
 
                 res[attr] = recursive_map(val, f)
 
+        return res
+
+    def to_kwargs(self, include_toggle_fields=True, include_out_data_store=False):
+        """
+        Useful function to call f(**spec.to_kwargs())
+        """
+        res = self.to_dict(include_toggle_fields=include_toggle_fields)
+        res.pop('type')
+        if not include_out_data_store: res.pop('out_data_store')
         return res
 
     # This is a little bit hacky, but I just want to write this short
@@ -499,9 +523,14 @@ class Spec(object):
 
     @staticmethod
     def key2spec(str):
-        if str.startswith('/'): str = str[1:]
-        kwargs = Spec.__key2dict(json.loads(str))
-        return Spec.dict2spec(kwargs)
+        try:
+            if str.startswith('/'): str = str[1:]
+            kwargs = Spec.__key2dict(json.loads(str))
+            return Spec.dict2spec(kwargs)
+        except ValueError, e:
+            raise e
+        except Exception, e:
+            raise ValueError(e.args)
 
     def __hash__(self):
 
@@ -523,7 +552,7 @@ class Spec(object):
         args = tuple()
 
         for attr, attr_type in cls.get_fields():
-            val = kwargs[attr]
+            val = kwargs.get(attr, attr_type.default)
 
             if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and ':' in kwargs[attr]:
                 kwargs[attr] = obj_from_path(val)

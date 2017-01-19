@@ -1,15 +1,22 @@
+import traceback
+import warnings
 from collections import defaultdict
 from itertools import product
 
 from fito import Operation
 from fito.specs.base import PrimitiveField, _no_default, BaseSpecField, SpecField, Field, Spec
-from sklearn.grid_search import ParameterGrid
+
+try:
+    from sklearn.model_selection import ParameterGrid
+except ImportError:
+    traceback.print_exc()
+    warnings.warn('Could not import ParameterGrid, without it the model selection module can not be used')
 
 
 class ModelParameter(PrimitiveField):
-    def __init__(self, grid, pos=None, default=_no_default, *args, **kwargs):
+    def __init__(self, pos=None, default=_no_default, grid=None, *args, **kwargs):
         super(ModelParameter, self).__init__(pos, default, *args, **kwargs)
-        self.grid = grid
+        self.grid = grid or ([] if default is _no_default else [default])
 
 
 class Model(Operation):
