@@ -14,9 +14,9 @@ except ImportError:
 
 
 class ModelParameter(PrimitiveField):
-    def __init__(self, grid, pos=None, default=_no_default, *args, **kwargs):
+    def __init__(self, pos=None, default=_no_default, grid=None, *args, **kwargs):
         super(ModelParameter, self).__init__(pos, default, *args, **kwargs)
-        self.grid = grid
+        self.grid = grid or ([] if default is _no_default else [default])
 
 
 class Model(Operation):
