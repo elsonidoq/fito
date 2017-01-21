@@ -140,6 +140,7 @@ class BaseSpecField(Field):
     def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, *args, **kwargs):
         super(BaseSpecField, self).__init__(pos=pos, default=default, serialize=serialize, *args, **kwargs)
         self.base_type = base_type
+        self.serialize = serialize
 
     @property
     def allowed_types(self):
