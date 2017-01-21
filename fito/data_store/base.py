@@ -1,14 +1,10 @@
-from functools import wraps
 import traceback
 import warnings
 
-from fito import Operation
-from fito import PrimitiveField
 from fito import Spec
 from fito import SpecField
 from fito.operation_runner import FifoCache, OperationRunner
-from fito.operations.decorate import GenericDecorator, operation_from_func
-from fito.specs.base import NumericField, KwargsField, ToggleField
+from fito.specs.base import NumericField, PrimitiveField
 
 
 class BaseDataStore(Spec):
@@ -22,7 +18,7 @@ class BaseDataStore(Spec):
 
     get_cache_size = NumericField(default=0)
     operation_runner = SpecField(default=OperationRunner())
-    verbose = ToggleField(default=False)
+    verbose = PrimitiveField(default=False, serialize=False)
 
     def __init__(self, *args, **kwargs):
         """

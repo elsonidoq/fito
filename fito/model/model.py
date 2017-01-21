@@ -14,9 +14,14 @@ except ImportError:
 
 
 class ModelParameter(PrimitiveField):
-    def __init__(self, pos=None, default=_no_default, grid=None, *args, **kwargs):
-        super(ModelParameter, self).__init__(pos, default, *args, **kwargs)
+    def __init__(self, pos=None, default=_no_default, serialize=True, grid=None, *args, **kwargs):
+        super(ModelParameter, self).__init__(pos, default, serialize, *args, **kwargs)
         self.grid = grid or ([] if default is _no_default else [default])
+
+
+def ModelField(pos=None, default=_no_default, base_type=None, serialize=True):
+    if base_type is None: raise ValueError("ModelField needs to have base_type")
+    return SpecField(pos=pos, default=default, base_type=base_type, serialize=serialize)
 
 
 class Model(Operation):
@@ -53,7 +58,6 @@ class Model(Operation):
             if len(submodels_params) > 0:
                 # If there are submodels, let's combine them
                 for params in product(*submodels_params):
-
                     params = map(Spec.dict2spec, params)
                     model_fields_combination.update(dict(zip(submodel_fields, params)))
 
@@ -66,9 +70,3 @@ class Model(Operation):
                 )
 
         return res
-
-
-def ModelField(pos=None, default=_no_default, base_type=None):
-    if base_type is None: raise ValueError("ModelField needs to have base_type")
-    return SpecField(pos=pos, default=default, base_type=base_type)
-

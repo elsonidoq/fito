@@ -51,9 +51,10 @@ class Field(object):
     Base class for field definition on an :py:class:`Spec`
     """
 
-    def __init__(self, pos=None, default=_no_default, *args, **kwargs):
-        self.default = default
+    def __init__(self, pos=None, default=_no_default, serialize=True, *args, **kwargs):
         self.pos = pos
+        self.default = default
+        self.serialize = serialize
 
     @property
     def allowed_types(self):
@@ -64,17 +65,6 @@ class Field(object):
 
     def __eq__(self, other):
         return self is other
-
-
-class ToggleField(Field):
-    """
-    Useful tu change subtleness on specs that you don't want have impact on
-    the serialized spec
-    """
-
-    @property
-    def allowed_types(self):
-        return [object]
 
 
 class PrimitiveField(Field):
@@ -148,9 +138,8 @@ class BaseSpecField(Field):
     """
 
     def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, *args, **kwargs):
-        super(BaseSpecField, self).__init__(pos=pos, default=default, *args, **kwargs)
+        super(BaseSpecField, self).__init__(pos=pos, default=default, serialize=serialize, *args, **kwargs)
         self.base_type = base_type
-        self.serialize = serialize
 
     @property
     def allowed_types(self):
@@ -168,7 +157,7 @@ def SpecField(pos=None, default=_no_default, base_type=None, serialize=True):
 
     :return:
     """
-    if serialize and default is _no_default:
+    if not serialize and default is _no_default:
         raise RuntimeError("If serialize == False, the field should have a default value")
 
     if base_type is not None:
@@ -181,7 +170,7 @@ def SpecField(pos=None, default=_no_default, base_type=None, serialize=True):
     else:
         return_type = BaseSpecField
 
-    return return_type(pos=pos, default=default, base_type=base_type)
+    return return_type(pos=pos, default=default, base_type=base_type, serialize=serialize)
 
 
 class SpecCollection(Field):
@@ -417,7 +406,7 @@ class Spec(object):
         if hasattr(self, '_key'): del self._key
         return super(Spec, self).__setattr__(key, value)
 
-    def to_dict(self, include_toggle_fields=False):
+    def to_dict(self, include_all=False):
         """
         :param include_toggles: Wether to include or not toggle_fields, default=False
         """
@@ -426,16 +415,16 @@ class Spec(object):
         for attr, attr_type in type(self).get_fields():
             val = getattr(self, attr)
 
-            if isinstance(attr_type, PrimitiveField) or (isinstance(attr_type, ToggleField) and include_toggle_fields):
+            if isinstance(attr_type, PrimitiveField) and (attr_type.serialize or include_all):
                 if inspect.isfunction(val) or inspect.isclass(val):
                     val = get_import_path(val)
 
                 res[attr] = val
 
-            elif isinstance(attr_type, BaseSpecField) and attr_type.serialize:
+            elif isinstance(attr_type, BaseSpecField) and (include_all or attr_type.serialize):
                 res[attr] = val if val is None else val.to_dict()
 
-            elif isinstance(attr_type, SpecCollection):
+            elif isinstance(attr_type, SpecCollection) and (include_all or attr_type.serialize):
                 def f(obj):
                     if isinstance(obj, Spec):
                         return obj.to_dict()
@@ -446,13 +435,13 @@ class Spec(object):
 
         return res
 
-    def to_kwargs(self, include_toggle_fields=True, include_out_data_store=False):
+    def to_kwargs(self, include_all=False):
         """
         Useful function to call f(**spec.to_kwargs())
+        :param include_all: Whether to include the fields whose spec has serialize == False
         """
-        res = self.to_dict(include_toggle_fields=include_toggle_fields)
+        res = self.to_dict(include_all=include_all)
         res.pop('type')
-        if not include_out_data_store: res.pop('out_data_store')
         return res
 
     # This is a little bit hacky, but I just want to write this short

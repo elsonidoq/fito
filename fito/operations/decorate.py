@@ -176,8 +176,8 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
 
         return this_args
 
-    def to_dict(self, include_toggle_fields=False):
-        res = super(out_type, self).to_dict(include_toggle_fields=include_toggle_fields)
+    def to_dict(self, include_all=False):
+        res = super(out_type, self).to_dict(include_all=include_all)
 
         if method_type == 'instance':
             raise RuntimeError(

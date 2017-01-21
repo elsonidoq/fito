@@ -5,7 +5,7 @@ from fito.specs.base import Spec, SpecField, _no_default
 
 
 class Operation(Spec):
-    out_data_store = SpecField(default=None)
+    out_data_store = SpecField(default=None, serialize=False)
 
     def execute(self, runner=None):
         if self.out_data_store is not None:
@@ -34,8 +34,8 @@ class MemoryObject(Operation):
     def apply(self, runner):
         return self.object
 
-    def to_dict(self, include_toggle_fields=False):
-        res = super(MemoryObject, self).to_dict(include_toggle_fields=include_toggle_fields)
+    def to_dict(self, include_all=False):
+        res = super(MemoryObject, self).to_dict(include_all=include_all)
         res[self.object_field_name] = id(self.object)
         return res
 
