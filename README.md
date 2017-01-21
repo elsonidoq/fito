@@ -33,7 +33,7 @@ from fito import as_operation
 
 ds = DictDataStore() # Can be any implementation of data store
 
-@as_operation(out_data_store=ds)
+@as_operation(cache_on=ds)
 def f(x, y=1):
     return x + y
 
