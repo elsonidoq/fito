@@ -34,7 +34,9 @@ def filter_odd(data):
 
 @as_operation(data=OperationField, out_type=BaseOp)
 def sum_all(data):
-    return sum([e['id'] for e in data])
+    self = as_operation.get_current_operation()
+    factor = 1 + isinstance(self.data, filter_odd)
+    return factor * sum([e['id'] for e in data])
 
 
 # Pushes some data into the mongo collection
@@ -74,7 +76,7 @@ class TestChainedOperations(unittest.TestCase):
                         )
                     )
                 ),
-                sum(range(0, 6, 2))
+                2*sum(range(0, 6, 2))
             )
 
         ]

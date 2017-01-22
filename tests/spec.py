@@ -17,6 +17,7 @@ class SpecA(Spec):
     field1 = NumericField(0)
     field2 = PrimitiveField(1, default=None)
     func = PrimitiveField(default=general_append)
+    verbose = PrimitiveField(default=False, serialize=False)
 
     def __repr__(self):
         return "A(field1={}, field2={})".format(self.field1, self.field2)
@@ -27,17 +28,17 @@ class AnotherSpec(Spec):
 
 
 class SpecB(Spec):
-    operation_a = SpecField(base_type=SpecA)
+    spec_a = SpecField(base_type=SpecA)
 
     def __repr__(self):
-        return "B(operation_a={})".format(self.operation_a)
+        return "B(spec_a={})".format(self.spec_a)
 
 
 class SpecC(Spec):
-    op_list = SpecCollection(0)
+    spec_list = SpecCollection(0)
 
     def __repr__(self):
-        return "C(op_list={})".format(self.op_list)
+        return "C(spec_list={})".format(self.spec_list)
 
 
 class SpecD(Spec):
@@ -51,14 +52,16 @@ def get_test_specs(only_lists=True, easy=False):
 
     instances = [
         SpecA(0),
+        SpecA(10, verbose=True),
         SpecA(1, datetime(2017, 1, 1)),
         SpecA(1, func=NumericField),
-        SpecB(operation_a=SpecA(0)),
-        SpecB(operation_a=SpecA(1)),
+        SpecB(spec_a=SpecA(0)),
+        SpecB(spec_a=SpecA(1)),
         SpecD(),
         SpecD(a=1),
         SpecD(4, a=1),
         SpecD(4),
+
     ]
 
     if easy: return instances
@@ -83,15 +86,15 @@ class TestSpec(unittest.TestCase):
         """
         :param module_name: either "json" or "yaml"
         """
-        for op in self.instances:
+        for spec in self.instances:
             try:
                 # Get the dumps serialization
-                op_dumps = getattr(op, module_name).dumps()
+                spec_dumps = getattr(spec, module_name).dumps()
 
                 f = StringIO()
-                getattr(op, module_name).dump(f)
+                getattr(spec, module_name).dump(f)
                 # Get the dump serialization, they should be equivalent
-                op_dump = f.getvalue()
+                spec_dump = f.getvalue()
             except TypeError, e:
                 if len(e.args) == 0: raise e
 
@@ -105,9 +108,9 @@ class TestSpec(unittest.TestCase):
 
             # Hack: TODO do this better
             load_func = getattr(Spec, 'from_{}'.format(module_name))
-            loaded_op = load_func(op_dump)
-            assert loaded_op == load_func(op_dumps)
-            assert loaded_op == op
+            loaded_op = load_func(spec_dump)
+            assert loaded_op == load_func(spec_dumps)
+            assert loaded_op == spec
 
     def test_json_serializable(self):
         self._test_serialization('json')
@@ -126,7 +129,7 @@ class TestSpec(unittest.TestCase):
             lambda: AnotherSpec(1),
 
             # base_type
-            lambda: SpecB(operation_a=AnotherSpec([])),
+            lambda: SpecB(spec_a=AnotherSpec([])),
 
             # this field does not exist
             lambda: SpecA(param=0),
@@ -135,7 +138,7 @@ class TestSpec(unittest.TestCase):
             lambda: SpecB(),
             lambda: SpecB(1),
             lambda: SpecB(a=1),
-            lambda: SpecB(operation_a=1),
+            lambda: SpecB(spec_a=1),
 
             # SpecB has 1 Spec arguments
             lambda: SpecC(a=1),
@@ -147,52 +150,64 @@ class TestSpec(unittest.TestCase):
 
     def test_key_caching(self):
         # Shouldn't have a key
-        op = SpecA(1)
-        assert not hasattr(op, '_key')
+        spec = SpecA(1)
+        assert not hasattr(spec, '_key')
 
         # Executed key, should now
-        _ = op.key
-        assert hasattr(op, '_key')
+        _ = spec.key
+        assert hasattr(spec, '_key')
 
         # Changed the object, the cache shouldn't be there
-        op.field1 = 10
-        assert not hasattr(op, '_key')
+        spec.field1 = 10
+        assert not hasattr(spec, '_key')
 
     def test_hasheable(self):
         d = {}
-        for i, op in enumerate(self.instances):
-            d[op] = i
+        for i, spec in enumerate(self.instances):
+            d[spec] = i
 
-        for i, op in enumerate(self.instances):
-            assert d[op] == i
-            assert d[op.dict2spec(op.to_dict())] == i
+        for i, spec in enumerate(self.instances):
+            assert d[spec] == i
+            assert d[spec.dict2spec(spec.to_dict())] == i
 
     def test_copy(self):
-        for op in self.instances:
-            assert op.to_dict() == op.copy().to_dict()
+        for spec in self.instances:
+            assert spec.to_dict() == spec.copy().to_dict()
 
     def test_replace(self):
-        for op in self.instances:
-            for field_name, field_spec in op.get_fields():
-                op_dict = op.to_dict()
+        for spec in self.instances:
+            for field_name, field_spec in spec.get_fields():
+                spec_dict = spec.to_dict(include_all=True)
+
                 if isinstance(field_spec, PrimitiveField):
-                    op_dict[field_name] = replace_val = 1
+                    spec_dict[field_name] = replace_val = 1
+
                 else:
-                    self.assertRaises(InvalidSpecInstance, op.replace, **{field_name: 1})
+
+                    self.assertRaises(InvalidSpecInstance, spec.replace, **{field_name: 1})
+
                     if isinstance(field_spec, BaseSpecField):
                         replace_val = [e for e in self.instances if field_spec.check_valid_value(e)][0]
-                        op_dict[field_name] = replace_val.to_dict()
+                        spec_dict[field_name] = replace_val.to_dict(include_all=True)
                     else:
                         replace_val = [Spec()]
-                        op_dict[field_name] = [replace_val[0].to_dict()]
+                        spec_dict[field_name] = [replace_val[0].to_dict(include_all=True)]
 
-                replaced_op_dict = op.replace(**{field_name: replace_val}).to_dict()
-                assert replaced_op_dict == op_dict
+                replaced_spec_dict = spec.replace(**{field_name: replace_val}).to_dict(include_all=True)
+                assert replaced_spec_dict == spec_dict
 
     def test_key(self):
-        for op in self.instances:
-            assert op == Spec.key2spec(op.key)
+        for spec in self.instances:
+            try: assert spec.to_dict() == Spec.key2spec(spec.key).to_dict()
+            except: import ipdb;ipdb.set_trace()
 
     def test_type2spec_class(self):
         assert Spec == Spec.type2spec_class('fito:Spec')
         assert Spec == Spec.type2spec_class('fito.specs.base:Spec')
+
+    def test_serialize(self):
+        s = SpecA(0, verbose=True)
+        assert 'verbose' not in s.to_dict()
+        assert 'verbose' in s.to_dict(include_all=True)
+        assert Spec.dict2spec(s.to_dict()) == s
+        assert Spec.dict2spec(s.to_dict(include_all=True)) == s

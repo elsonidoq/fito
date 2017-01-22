@@ -7,10 +7,7 @@ from sklearn.ensemble import GradientBoostingClassifier as SKGradientBoostingCla
 
 class SKLearnModel(Model):
     def instance_model(self, constructor):
-        kwargs = self.to_dict()
-        kwargs.pop('type')
-        kwargs.pop('out_data_store')
-        return constructor(**kwargs)
+        return constructor(**self.to_kwargs())
 
 
 class LinearRegression(SKLearnModel):

@@ -1,6 +1,7 @@
 import inspect
 import json
 from StringIO import StringIO
+from functools import partial
 from functools import total_ordering
 
 from memoized_property import memoized_property
@@ -14,6 +15,7 @@ import warnings
 
 try:
     from bson import json_util
+    from bson.json_util import JSONOptions
     from json import dumps, dump, load, loads
 
 
@@ -23,17 +25,20 @@ try:
 
 
     def json_dump(*args, **kwargs):
-        kwargs['default'] = json_util.object_hook
+        kwargs['default'] = json_util.default
         return dump(*args, **kwargs)
 
+    # how should we handle datetimes? This forces non timezone aware datetimes
+    # TODO: Either throw exception when a tz aware datetime is received, or handle both correctly
+    json_options = JSONOptions(tz_aware=False)
 
     def json_loads(*args, **kwargs):
-        kwargs['object_hook'] = json_util.object_hook
+        kwargs['object_hook'] = partial(json_util.object_hook, json_options=json_options)
         return loads(*args, **kwargs)
 
 
     def json_load(*args, **kwargs):
-        kwargs['object_hook'] = json_util.object_hook
+        kwargs['object_hook'] = partial(json_util.object_hook, json_options=json_options)
         return load(*args, **kwargs)
 
 
@@ -51,9 +56,18 @@ class Field(object):
     Base class for field definition on an :py:class:`Spec`
     """
 
-    def __init__(self, pos=None, default=_no_default, *args, **kwargs):
-        self.default = default
+    def __init__(self, pos=None, default=_no_default, serialize=True, *args, **kwargs):
+        """
+        :param pos: The position on the argument list
+        :param default: The default value
+        :param serialize: Whether to include this field in the serialization. A side effect of this field is
+        that when set to False, this field is not considered when comparing two specs
+        :param args: Helps having them to create on the fly sublcasses of field. See :py:func:Spec:
+        :param kwargs:
+        """
         self.pos = pos
+        self.default = default
+        self.serialize = serialize
 
     @property
     def allowed_types(self):
@@ -64,17 +78,6 @@ class Field(object):
 
     def __eq__(self, other):
         return self is other
-
-
-class ToggleField(Field):
-    """
-    Useful tu change subtleness on specs that you don't want have impact on
-    the serialized spec
-    """
-
-    @property
-    def allowed_types(self):
-        return [object]
 
 
 class PrimitiveField(Field):
@@ -147,16 +150,30 @@ class BaseSpecField(Field):
     Specifies a Field whose value will be an Spec
     """
 
-    def __init__(self, pos=None, default=_no_default, base_type=None, *args, **kwargs):
-        super(BaseSpecField, self).__init__(pos=pos, default=default, *args, **kwargs)
+    def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, *args, **kwargs):
+        super(BaseSpecField, self).__init__(pos=pos, default=default, serialize=serialize, *args, **kwargs)
         self.base_type = base_type
+        self.serialize = serialize
 
     @property
     def allowed_types(self):
         return [Spec if self.base_type is None else self.base_type]
 
 
-def SpecField(pos=None, default=_no_default, base_type=None):
+def SpecField(pos=None, default=_no_default, base_type=None, serialize=True):
+    """
+    Builds a SpecField
+
+    :param pos: Position on *args
+    :param default: Default value
+    :param base_type: Base type, it does some type checkig + avoids some warnings from IntelliJ
+    :param serialize: Whether this spec field should be included in the serialization of the object
+
+    :return:
+    """
+    if not serialize and default is _no_default:
+        raise RuntimeError("If serialize == False, the field should have a default value")
+
     if base_type is not None:
         assert issubclass(base_type, Spec)
         return_type = type(
@@ -167,7 +184,7 @@ def SpecField(pos=None, default=_no_default, base_type=None):
     else:
         return_type = BaseSpecField
 
-    return return_type(pos=pos, default=default, base_type=base_type)
+    return return_type(pos=pos, default=default, base_type=base_type, serialize=serialize)
 
 
 class SpecCollection(Field):
@@ -359,7 +376,7 @@ class Spec(object):
             setattr(self, attr, attr_type)
 
     def copy(self):
-        return type(self)._from_dict(self.to_dict())
+        return type(self)._from_dict(self.to_dict(include_all=True))
 
     def replace(self, **kwargs):
         res = self.copy()
@@ -396,14 +413,14 @@ class Spec(object):
 
     @memoized_property
     def key(self):
-        return '/%s' % json.dumps(self.__dict2key(self.to_dict()))
+        return '/%s' % json.dumps(self.__dict2key(self.to_dict(include_all=False)))
 
     def __setattr__(self, key, value):
         # invalidate key cache if you change the object
         if hasattr(self, '_key'): del self._key
         return super(Spec, self).__setattr__(key, value)
 
-    def to_dict(self, include_toggle_fields=False):
+    def to_dict(self, include_all=False):
         """
         :param include_toggles: Wether to include or not toggle_fields, default=False
         """
@@ -412,19 +429,19 @@ class Spec(object):
         for attr, attr_type in type(self).get_fields():
             val = getattr(self, attr)
 
-            if isinstance(attr_type, PrimitiveField) or (isinstance(attr_type, ToggleField) and include_toggle_fields):
+            if isinstance(attr_type, PrimitiveField) and (attr_type.serialize or include_all):
                 if inspect.isfunction(val) or inspect.isclass(val):
                     val = get_import_path(val)
 
                 res[attr] = val
 
-            elif isinstance(attr_type, BaseSpecField):
-                res[attr] = val if val is None else val.to_dict()
+            elif isinstance(attr_type, BaseSpecField) and (include_all or attr_type.serialize):
+                res[attr] = val if val is None else val.to_dict(include_all=include_all)
 
-            elif isinstance(attr_type, SpecCollection):
+            elif isinstance(attr_type, SpecCollection) and (include_all or attr_type.serialize):
                 def f(obj):
                     if isinstance(obj, Spec):
-                        return obj.to_dict()
+                        return obj.to_dict(include_all=include_all)
                     else:
                         return obj
 
@@ -432,13 +449,13 @@ class Spec(object):
 
         return res
 
-    def to_kwargs(self, include_toggle_fields=True, include_out_data_store=False):
+    def to_kwargs(self, include_all=False):
         """
         Useful function to call f(**spec.to_kwargs())
+        :param include_all: Whether to include the fields whose spec has serialize == False
         """
-        res = self.to_dict(include_toggle_fields=include_toggle_fields)
+        res = self.to_dict(include_all=include_all)
         res.pop('type')
-        if not include_out_data_store: res.pop('out_data_store')
         return res
 
     # This is a little bit hacky, but I just want to write this short
@@ -449,7 +466,7 @@ class Spec(object):
             self.dumps = lambda: module.dumps(what, **kwargs)
 
     @property
-    def yaml(self):
+    def yaml(self, include_all=False):
         # lazy import to avoid adding the dependency package wide
         import yaml
 
@@ -461,11 +478,11 @@ class Spec(object):
 
         yaml.dumps = dumps
 
-        return Spec.Exporter(yaml, self.to_dict(), default_flow_style=False)
+        return Spec.Exporter(yaml, self.to_dict(include_all=include_all), default_flow_style=False)
 
     @property
-    def json(self):
-        return Spec.Exporter(json, self.to_dict(), indent=2)
+    def json(self, include_all=False):
+        return Spec.Exporter(json, self.to_dict(include_all=include_all), indent=2)
 
     @classmethod
     def from_json(cls, string):
@@ -535,11 +552,13 @@ class Spec(object):
             raise ValueError(e.args)
 
     def __hash__(self):
-
         return hash(self.key)
 
     def __eq__(self, other):
-        return type(self).__name__ == type(other).__name__ and self.key == other.key
+        return (
+            type(self) is type(other) and
+            self.key == other.key
+        )
 
     def __lt__(self, other):
         return self.key < other.key

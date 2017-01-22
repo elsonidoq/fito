@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from copy import deepcopy
 
+from fito import Spec
 from fito import as_operation
 from fito.data_store import file, dict_ds, mongo
 from fito.data_store.mongo import get_collection, global_client
@@ -62,6 +63,10 @@ class TestDataStore(unittest.TestCase):
             for spec, i in ds.iteritems():
                 assert self.indexed_specs[i] == spec
 
+    def test_to_dict(self):
+        for ds in self.data_stores:
+            assert ds == Spec.dict2spec(ds.to_dict())
+
     def test_get(self):
         for ds in self.data_stores:
             for i, spec in enumerate(self.indexed_specs):
@@ -90,8 +95,9 @@ class TestDataStore(unittest.TestCase):
             for i in xrange(10):
                 op = OperationClass(i)
                 assert op not in ds
-                op.execute()
+                value = op.execute()
                 assert op in ds
+                assert op.execute() == value
 
 
 def func(i):

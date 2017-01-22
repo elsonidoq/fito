@@ -44,8 +44,8 @@ class MongoHashMap(BaseDataStore):
         else:
             self.gridfs = None
 
-    def to_dict(self):
-        res = super(MongoHashMap, self).to_dict()
+    def to_dict(self, include_all=False):
+        res = super(MongoHashMap, self).to_dict(include_all=include_all)
         res['coll'] = '{}.{}'.format(self.coll.database.name, self.coll.name)
         return res
 
@@ -191,26 +191,26 @@ class MongoHashMap(BaseDataStore):
             res = res[0]
         return res
 
-    def _build_mongo_query(self, q):
-        res = {}
-        for k, v in q.iteritems():
-            if isinstance(v, list):
-                new_v = []
-                for e in v:
-                    new_v.append(e)
-                v = new_v
-
-            if not k.startswith('$'): k = 'spec.%s' % k
-            res[k] = v
-        return res
-
-    def search(self, query):
-        query_dict = self._build_mongo_query(query.dict)
-
-        for doc in self.coll.find(query_dict, no_cursor_timeout=False):
-            spec, series = self._parse_doc(doc)
-            yield spec, series
-
-    def create_index_for_query(self, query):
-        index = [('spec.%s' % k, pymongo.ASCENDING) for k in query.dict.keys()]
-        self.coll.create_index(index)
+    # def _build_mongo_query(self, q):
+    #     res = {}
+    #     for k, v in q.iteritems():
+    #         if isinstance(v, list):
+    #             new_v = []
+    #             for e in v:
+    #                 new_v.append(e)
+    #             v = new_v
+    #
+    #         if not k.startswith('$'): k = 'spec.%s' % k
+    #         res[k] = v
+    #     return res
+    #
+    # def search(self, query):
+    #     query_dict = self._build_mongo_query(query.dict)
+    #
+    #     for doc in self.coll.find(query_dict, no_cursor_timeout=False):
+    #         spec, series = self._parse_doc(doc)
+    #         yield spec, series
+    #
+    # def create_index_for_query(self, query):
+    #     index = [('spec.%s' % k, pymongo.ASCENDING) for k in query.dict.keys()]
+    #     self.coll.create_index(index)
