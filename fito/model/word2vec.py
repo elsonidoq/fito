@@ -21,7 +21,7 @@ class Word2Vec(Model):
     max_vocab_size = ModelParameter(5, default=None)
     sample = ModelParameter(6, default=0.001)
     seed = ModelParameter(7, default=1)
-    workers = PrimitiveField(8, default=3, serialize=True)
+    workers = PrimitiveField(8, default=3, serialize=False)
     train_iterator = PrimitiveField(
         default=None,
         help='When sentences is not a rewindable iterator, you must specify another copy of it here',
