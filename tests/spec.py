@@ -1,3 +1,5 @@
+import os
+from tempfile import mktemp, mkdtemp
 import warnings
 from StringIO import StringIO
 import unittest
@@ -5,6 +7,8 @@ from datetime import datetime
 from random import Random
 
 import re
+import shutil
+import yaml
 
 from fito import Spec, SpecField, PrimitiveField
 from fito.specs.base import NumericField, CollectionField, SpecCollection, InvalidSpecInstance, BaseSpecField, \
@@ -203,8 +207,7 @@ class TestSpec(unittest.TestCase):
 
     def test_key(self):
         for spec in self.instances:
-            try: assert spec.to_dict() == Spec.key2spec(spec.key).to_dict()
-            except: import ipdb;ipdb.set_trace()
+            assert spec.to_dict() == Spec.key2spec(spec.key).to_dict()
 
     def test_type2spec_class(self):
         assert Spec == Spec.type2spec_class('fito:Spec')
@@ -219,3 +222,32 @@ class TestSpec(unittest.TestCase):
 
     def test_empty_load(self):
         assert SpecWithDefault() == Spec.dict2spec({'type': 'SpecWithDefault'})
+
+    def test_reference(self):
+        for spec in self.instances:
+            for use_relative_paths in True, False:
+                try:
+                    tmp_dir = mkdtemp()
+                    fnames = splitted_serialize(spec, tmp_dir, use_relative_paths=use_relative_paths)
+                    assert spec == Spec.from_yaml().load(fnames[spec])
+                finally:
+                    shutil.rmtree(tmp_dir)
+
+
+def splitted_serialize(spec, dir, use_relative_paths):
+    fnames = {}
+    spec_fields = spec.get_spec_fields()
+    for attr, subspec in spec_fields.iteritems():
+        fnames.update(splitted_serialize(subspec, dir, use_relative_paths))
+
+    spec_fname = fnames[spec] = mktemp(suffix='_spec.yaml', dir=dir)
+    d = spec.to_dict(include_all=True)
+    for k, v in d.iteritems():
+        if k in spec_fields:
+            d[k] = fnames[getattr(spec, k)]
+            if use_relative_paths: d[k] = os.path.basename(d[k])
+
+    with open(spec_fname, 'w') as f:
+        yaml.dump(d, f, default_flow_style=False)
+
+    return fnames
