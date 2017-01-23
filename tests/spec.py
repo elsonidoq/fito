@@ -1,3 +1,5 @@
+import os
+from tempfile import mktemp, mkdtemp
 import warnings
 from StringIO import StringIO
 import unittest
@@ -5,6 +7,8 @@ from datetime import datetime
 from random import Random
 
 import re
+import shutil
+import yaml
 
 from fito import Spec, SpecField, PrimitiveField
 from fito.specs.base import NumericField, CollectionField, SpecCollection, InvalidSpecInstance, BaseSpecField, \
@@ -46,6 +50,10 @@ class SpecD(Spec):
     the_kwargs = KwargsField()
 
 
+class SpecWithDefault(Spec):
+    a = SpecField(default=SpecA(10))
+
+
 def get_test_specs(only_lists=True, easy=False):
     if easy:
         warnings.warn("get_test_specs(easy=True)")
@@ -61,7 +69,7 @@ def get_test_specs(only_lists=True, easy=False):
         SpecD(a=1),
         SpecD(4, a=1),
         SpecD(4),
-
+        SpecWithDefault(),
     ]
 
     if easy: return instances
@@ -108,8 +116,9 @@ class TestSpec(unittest.TestCase):
 
             # Hack: TODO do this better
             load_func = getattr(Spec, 'from_{}'.format(module_name))
-            loaded_op = load_func(spec_dump)
-            assert loaded_op == load_func(spec_dumps)
+            importer = load_func()
+            loaded_op = importer.loads(spec_dump)
+            assert loaded_op == importer.loads(spec_dumps)
             assert loaded_op == spec
 
     def test_json_serializable(self):
@@ -198,8 +207,7 @@ class TestSpec(unittest.TestCase):
 
     def test_key(self):
         for spec in self.instances:
-            try: assert spec.to_dict() == Spec.key2spec(spec.key).to_dict()
-            except: import ipdb;ipdb.set_trace()
+            assert spec.to_dict() == Spec.key2spec(spec.key).to_dict()
 
     def test_type2spec_class(self):
         assert Spec == Spec.type2spec_class('fito:Spec')
@@ -211,3 +219,35 @@ class TestSpec(unittest.TestCase):
         assert 'verbose' in s.to_dict(include_all=True)
         assert Spec.dict2spec(s.to_dict()) == s
         assert Spec.dict2spec(s.to_dict(include_all=True)) == s
+
+    def test_empty_load(self):
+        assert SpecWithDefault() == Spec.dict2spec({'type': 'SpecWithDefault'})
+
+    def test_reference(self):
+        for spec in self.instances:
+            for use_relative_paths in True, False:
+                try:
+                    tmp_dir = mkdtemp()
+                    fnames = splitted_serialize(spec, tmp_dir, use_relative_paths=use_relative_paths)
+                    assert spec == Spec.from_yaml().load(fnames[spec])
+                finally:
+                    shutil.rmtree(tmp_dir)
+
+
+def splitted_serialize(spec, dir, use_relative_paths):
+    fnames = {}
+    spec_fields = spec.get_spec_fields()
+    for attr, subspec in spec_fields.iteritems():
+        fnames.update(splitted_serialize(subspec, dir, use_relative_paths))
+
+    spec_fname = fnames[spec] = mktemp(suffix='_spec.yaml', dir=dir)
+    d = spec.to_dict(include_all=True)
+    for k, v in d.iteritems():
+        if k in spec_fields:
+            d[k] = fnames[getattr(spec, k)]
+            if use_relative_paths: d[k] = os.path.basename(d[k])
+
+    with open(spec_fname, 'w') as f:
+        yaml.dump(d, f, default_flow_style=False)
+
+    return fnames

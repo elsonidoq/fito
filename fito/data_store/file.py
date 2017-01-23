@@ -28,10 +28,9 @@ class FileDataStore(BaseDataStore):
 
         if not os.path.exists(self.path): os.makedirs(self.path)
 
-        conf_file = os.path.join(self.path, 'conf.json')
+        conf_file = os.path.join(self.path, 'conf.yaml')
         if os.path.exists(conf_file):
-            with open(conf_file) as f:
-                conf_serializer = Spec.from_yaml(f.read())
+            conf_serializer = Spec.from_yaml().load(conf_file)
 
             if self.serializer is None:
                 self.serializer = conf_serializer

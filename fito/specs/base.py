@@ -3,6 +3,7 @@ import json
 from StringIO import StringIO
 from functools import partial
 from functools import total_ordering
+import os
 
 from memoized_property import memoized_property
 
@@ -48,7 +49,14 @@ try:
     json.loads = json_loads
 
 except ImportError:
-    warnings.warn("Couldnt import json_util from bson, won't be able to handle datetime")
+    warnings.warn("Couldn't import json_util from bson, won't be able to handle datetime")
+
+
+try:
+    import yaml
+except ImportError:
+    warnings.warn("Couldn't yaml, some features won't be enabled")
+
 
 
 class Field(object):
@@ -467,31 +475,32 @@ class Spec(object):
 
     @property
     def yaml(self, include_all=False):
-        # lazy import to avoid adding the dependency package wide
-        import yaml
-
-        # yaml doesnt provide a dumps function
-        def dumps(what, *args, **kwargs):
-            f = StringIO()
-            yaml.dump(what, f, *args, **kwargs)
-            return f.getvalue()
-
-        yaml.dumps = dumps
-
+        yaml.dumps = yaml.dump
         return Spec.Exporter(yaml, self.to_dict(include_all=include_all), default_flow_style=False)
 
     @property
     def json(self, include_all=False):
         return Spec.Exporter(json, self.to_dict(include_all=include_all), indent=2)
 
-    @classmethod
-    def from_json(cls, string):
-        return cls.dict2spec(json.loads(string))
+    class Importer(object):
+        def __init__(self, cls, module):
+            self.cls = cls
+            self.module = module
+
+        def load(self, path):
+            with open(path) as f:
+                return self.cls.dict2spec(self.module.load(f), path=os.path.abspath(os.path.dirname(path)))
+
+        def loads(self, string): return self.cls.dict2spec(self.module.loads(string))
 
     @classmethod
-    def from_yaml(cls, string):
-        import yaml
-        return cls.dict2spec(yaml.load(StringIO(string)))
+    def from_json(cls):
+        return Spec.Importer(cls, json)
+
+    @classmethod
+    def from_yaml(cls):
+        yaml.loads = yaml.load
+        return Spec.Importer(cls, yaml)
 
     @classmethod
     def get_fields(cls):
@@ -530,7 +539,12 @@ class Spec(object):
                 if cls.__name__ == spec_type: return cls
 
     @staticmethod
-    def dict2spec(dict):
+    def dict2spec(dict, path=None):
+        """
+        Loads a Spec from a dictionary
+        :param dict: Dictionary to load it from
+        :param path: Used to build relative paths when referencing other files, see Spec.Importer.load
+        """
         cls = Spec.type2spec_class(dict['type'])
         if cls is None:
             raise ValueError(
@@ -538,7 +552,7 @@ class Spec(object):
                 "This might happen if you are referencing an Spec that hasn't been imported"
             )
 
-        return cls._from_dict(dict)
+        return cls._from_dict(dict, path=path)
 
     @staticmethod
     def key2spec(str):
@@ -567,7 +581,7 @@ class Spec(object):
         return self.key != other.key
 
     @classmethod
-    def _from_dict(cls, kwargs):
+    def _from_dict(cls, kwargs, path=None):
         kwargs = kwargs.copy()
         kwargs.pop('type')
         args = tuple()
@@ -578,8 +592,26 @@ class Spec(object):
             if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and ':' in kwargs[attr]:
                 kwargs[attr] = obj_from_path(val)
 
-            elif isinstance(attr_type, BaseSpecField) and val is not None:
-                kwargs[attr] = Spec.dict2spec(kwargs[attr])
+            elif isinstance(attr_type, BaseSpecField) and val is not None and attr in kwargs:
+                if isinstance(val, basestring):
+                    if not os.path.exists(val) and path is not None:
+                        if not os.path.exists(os.path.join(path, val)):
+                            raise RuntimeError(
+                                "Could not load referenced file ({}) for attribute {}".format(val, attr)
+                            )
+                        val = os.path.join(path, val)
+
+                    if val.endswith('.yaml'):
+                        with open(val) as f:
+                            val = yaml.load(f)
+                    elif val.endswith('.json'):
+                        with open(val) as f:
+                            val = json.load(f)
+                    else:
+                        raise RuntimeError('Invalid extension for referenced attribute {}, path: {}'.format(attr, val))
+
+                # should be a dict
+                kwargs[attr] = Spec.dict2spec(val)
 
             elif isinstance(attr_type, SpecCollection):
                 def f(obj):
