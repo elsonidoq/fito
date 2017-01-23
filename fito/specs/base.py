@@ -611,7 +611,7 @@ class Spec(object):
                         raise RuntimeError('Invalid extension for referenced attribute {}, path: {}'.format(attr, val))
 
                 # should be a dict
-                kwargs[attr] = Spec.dict2spec(val)
+                kwargs[attr] = Spec.dict2spec(val, path=path)
 
             elif isinstance(attr_type, SpecCollection):
                 def f(obj):
