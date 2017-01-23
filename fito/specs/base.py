@@ -469,29 +469,33 @@ class Spec(object):
     def yaml(self, include_all=False):
         # lazy import to avoid adding the dependency package wide
         import yaml
-
-        # yaml doesnt provide a dumps function
-        def dumps(what, *args, **kwargs):
-            f = StringIO()
-            yaml.dump(what, f, *args, **kwargs)
-            return f.getvalue()
-
-        yaml.dumps = dumps
-
+        yaml.dumps = yaml.dump
         return Spec.Exporter(yaml, self.to_dict(include_all=include_all), default_flow_style=False)
 
     @property
     def json(self, include_all=False):
         return Spec.Exporter(json, self.to_dict(include_all=include_all), indent=2)
 
-    @classmethod
-    def from_json(cls, string):
-        return cls.dict2spec(json.loads(string))
+    class Importer(object):
+        def __init__(self, cls, module):
+            self.cls = cls
+            self.module = module
+
+        def load(self, path):
+            with open(path) as f:
+                return self.cls.dict2spec(self.module.load(f))
+
+        def loads(self, string): return self.cls.dict2spec(self.module.loads(string))
 
     @classmethod
-    def from_yaml(cls, string):
+    def from_json(cls):
+        return Spec.Importer(cls, json)
+
+    @classmethod
+    def from_yaml(cls):
         import yaml
-        return cls.dict2spec(yaml.load(StringIO(string)))
+        yaml.loads = yaml.load
+        return Spec.Importer(cls, yaml)
 
     @classmethod
     def get_fields(cls):
