@@ -89,6 +89,8 @@ class as_operation(GenericDecorator):
 
         if self.cache_on is not None:
             OperationClass.out_data_store = self.cache_on
+        else:
+            OperationClass.out_data_store = Operation.out_data_store
 
         return OperationClass
 
