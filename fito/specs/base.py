@@ -439,7 +439,7 @@ class Spec(object):
 
             if isinstance(attr_type, PrimitiveField) and (attr_type.serialize or include_all):
                 if inspect.isfunction(val) or inspect.isclass(val):
-                    val = get_import_path(val)
+                    val = 'import {}'.format(get_import_path(val))
 
                 res[attr] = val
 
@@ -548,7 +548,7 @@ class Spec(object):
         cls = Spec.type2spec_class(dict['type'])
         if cls is None:
             raise ValueError(
-                "Unknown spec type."
+                "Unknown spec type: {}\n".format(dict['type']) +
                 "This might happen if you are referencing an Spec that hasn't been imported"
             )
 
@@ -589,8 +589,8 @@ class Spec(object):
         for attr, attr_type in cls.get_fields():
             val = kwargs.get(attr, attr_type.default)
 
-            if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and ':' in kwargs[attr]:
-                kwargs[attr] = obj_from_path(val)
+            if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and kwargs[attr].startswith('import '):
+                kwargs[attr] = obj_from_path(val[len('import '):])
 
             elif isinstance(attr_type, BaseSpecField) and val is not None and attr in kwargs:
                 if isinstance(val, basestring):
