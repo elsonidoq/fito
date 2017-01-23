@@ -40,8 +40,8 @@ class MemoryObject(Operation):
         return res
 
     @classmethod
-    def _from_dict(cls, kwargs):
-        res = super(MemoryObject, cls)._from_dict(kwargs)
+    def _from_dict(cls, kwargs, path=None):
+        res = super(MemoryObject, cls)._from_dict(kwargs, path=path)
 
         setattr(
             res,
