@@ -112,8 +112,9 @@ class TestSpec(unittest.TestCase):
 
             # Hack: TODO do this better
             load_func = getattr(Spec, 'from_{}'.format(module_name))
-            loaded_op = load_func(spec_dump)
-            assert loaded_op == load_func(spec_dumps)
+            importer = load_func()
+            loaded_op = importer.loads(spec_dump)
+            assert loaded_op == importer.loads(spec_dumps)
             assert loaded_op == spec
 
     def test_json_serializable(self):
