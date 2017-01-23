@@ -578,7 +578,7 @@ class Spec(object):
             if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and ':' in kwargs[attr]:
                 kwargs[attr] = obj_from_path(val)
 
-            elif isinstance(attr_type, BaseSpecField) and val is not None:
+            elif isinstance(attr_type, BaseSpecField) and val is not None and attr in kwargs:
                 kwargs[attr] = Spec.dict2spec(kwargs[attr])
 
             elif isinstance(attr_type, SpecCollection):
