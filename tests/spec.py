@@ -46,6 +46,10 @@ class SpecD(Spec):
     the_kwargs = KwargsField()
 
 
+class SpecWithDefault(Spec):
+    a = SpecField(default=SpecA(10))
+
+
 def get_test_specs(only_lists=True, easy=False):
     if easy:
         warnings.warn("get_test_specs(easy=True)")
@@ -61,7 +65,7 @@ def get_test_specs(only_lists=True, easy=False):
         SpecD(a=1),
         SpecD(4, a=1),
         SpecD(4),
-
+        SpecWithDefault(),
     ]
 
     if easy: return instances
@@ -211,3 +215,6 @@ class TestSpec(unittest.TestCase):
         assert 'verbose' in s.to_dict(include_all=True)
         assert Spec.dict2spec(s.to_dict()) == s
         assert Spec.dict2spec(s.to_dict(include_all=True)) == s
+
+    def test_empty_load(self):
+        assert SpecWithDefault() == Spec.dict2spec({'type': 'SpecWithDefault'})
