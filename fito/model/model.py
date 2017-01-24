@@ -19,9 +19,19 @@ class ModelParameter(PrimitiveField):
         self.grid = grid or ([] if default is _no_default else [default])
 
 
-def ModelField(pos=None, default=_no_default, base_type=None, serialize=True):
-    if base_type is None: raise ValueError("ModelField needs to have base_type")
-    return SpecField(pos=pos, default=default, base_type=base_type, serialize=serialize)
+class BaseModelField(BaseSpecField):
+    def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, grid=None, *args, **kwargs):
+        super(BaseModelField, self).__init__(pos, default, base_type, serialize, *args, **kwargs)
+        self.grid = grid or ([] if default is _no_default else [default])
+
+
+def ModelField(pos=None, default=_no_default, base_type=None, serialize=True, grid=None):
+    if base_type is not None:
+        assert issubclass(base_type, Model)
+    else:
+        base_type = Model
+
+    return BaseModelField(pos=pos, default=default, base_type=base_type, serialize=serialize, grid=grid)
 
 
 class Model(Operation):
@@ -38,14 +48,9 @@ class Model(Operation):
         submodels_params = defaultdict(list)
 
         for field_name, field_spec in cls.get_fields():
-            if not isinstance(field_spec, BaseSpecField): continue
-            if field_spec.base_type is None: continue
-            if not issubclass(field_spec.base_type, Model): continue
+            if not isinstance(field_spec, BaseModelField): continue
 
-            for impl in field_spec.base_type._get_all_subclasses():
-                # This check has to be done because SpecField creates subclasses
-                if issubclass(impl, Field): continue
-
+            for impl in field_spec.grid:
                 submodels_params[field_name].extend(impl.get_hyper_parameters_grid())
 
         res = []
