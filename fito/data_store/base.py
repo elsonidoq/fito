@@ -1,9 +1,12 @@
 import traceback
 import warnings
+from functools import wraps
 
+from fito import Operation
 from fito import Spec
 from fito import SpecField
 from fito.operation_runner import FifoCache, OperationRunner
+from fito.operations.decorate import GenericDecorator, as_operation, operation_from_func
 from fito.specs.base import NumericField, PrimitiveField
 
 
@@ -105,3 +108,29 @@ class BaseDataStore(Spec):
                 self[operation] = res
 
         return res
+
+    def autosave(self, *args, **kwargs):
+        kwargs['cache_on'] = self
+        return AutosavedFunction(*args, **kwargs)
+
+
+class AutosavedFunction(as_operation):
+    def create_decorated(self, to_wrap, func_to_execute, f_spec=None, first_arg=None):
+        OperationClass = super(AutosavedFunction, self).create_decorated(
+            to_wrap, func_to_execute, f_spec=f_spec, first_arg=first_arg
+        )
+
+        class FunctionWrapper(object):
+            @property
+            def wrapped_function(self):
+                return to_wrap
+
+            @property
+            def operation_class(self):
+                return OperationClass
+
+            @wraps(to_wrap)
+            def __call__(_, *args, **kwargs):
+                return OperationClass(*args, **kwargs).execute()
+
+        return FunctionWrapper()
