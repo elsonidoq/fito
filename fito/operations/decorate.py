@@ -68,7 +68,6 @@ class as_operation(GenericDecorator):
     :param out_type: Base class of the operation to be built. Defaults to `Operation`
     :param out_name: Name of the class to be built, deafults to the decorated function name.
     """
-    method_type = PrimitiveField(default=None)
     out_type = PrimitiveField(default=Operation)
     out_name = PrimitiveField(default=None)
     cache_on = SpecField(default=None)
@@ -84,13 +83,9 @@ class as_operation(GenericDecorator):
             args_specifications=self.args_specifications,
             f_spec=f_spec,
             method_type=self.method_type,
-            first_arg=first_arg
+            first_arg=first_arg,
+            cache_on=self.cache_on
         )
-
-        if self.cache_on is not None:
-            OperationClass.out_data_store = self.cache_on
-        else:
-            OperationClass.out_data_store = Operation.out_data_store
 
         return OperationClass
 
@@ -138,11 +133,12 @@ def print_fields_from_func(callable):
 
 
 def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_specifications, f_spec=None,
-                        method_type=None, first_arg=None):
+                        method_type=None, first_arg=None, cache_on=None):
     """
     In the case of methods, to_wrap is not the same to func_to_execute
     :param to_wrap: See `GenericDecorator.create_decorated` for an explanation
     :param func_to_execute: See `GenericDecorator.create_decorated` for an explanation
+    :param cache_on: A data store onto which the operation should be cached
     :return:
     """
     f_spec = f_spec or inspect.getargspec(to_wrap)
@@ -226,5 +222,11 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         # otherwise update it
         for k, v in cls_attrs.iteritems():
             setattr(cls, k, v)
+
+    if cache_on is not None:
+        cls.out_data_store = cache_on
+    else:
+        cls.out_data_store = Operation.out_data_store
+
 
     return cls
