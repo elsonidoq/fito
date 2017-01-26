@@ -241,6 +241,12 @@ class SpecMeta(type):
         :return: New Spec subclass
         """
         res = type.__new__(cls, name, bases, dct)
+
+        if '..' in repr(res):
+            raise RuntimeError(
+                "Received a weird module path ({}). This seems to happen when ".format(repr(res)) +
+                "a class is imported indirectly from a yaml"
+            )
         fields = dict(res.get_fields())
         fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
 
