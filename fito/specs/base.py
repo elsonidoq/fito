@@ -16,7 +16,7 @@ import warnings
 
 try:
     from bson import json_util
-    from bson.json_util import JSONOptions
+    from bson import json_util
     from json import dumps, dump, load, loads
 
 
@@ -31,15 +31,15 @@ try:
 
     # how should we handle datetimes? This forces non timezone aware datetimes
     # TODO: Either throw exception when a tz aware datetime is received, or handle both correctly
-    json_options = JSONOptions(tz_aware=False)
+    json_util.DEFAULT_JSON_OPTIONS = json_util.JSONOptions(tz_aware=False)
 
     def json_loads(*args, **kwargs):
-        kwargs['object_hook'] = partial(json_util.object_hook, json_options=json_options)
+        kwargs['object_hook'] = json_util.object_hook
         return loads(*args, **kwargs)
 
 
     def json_load(*args, **kwargs):
-        kwargs['object_hook'] = partial(json_util.object_hook, json_options=json_options)
+        kwargs['object_hook'] = json_util.object_hook
         return load(*args, **kwargs)
 
 
