@@ -142,6 +142,11 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     :return:
     """
     f_spec = f_spec or inspect.getargspec(to_wrap)
+
+    out_name = out_name or to_wrap.__name__
+    if method_type == 'instance':
+        out_name = '{}@{}'.format(out_name, id(first_arg))
+
     default_values = get_default_values(f_spec)
 
     attrs = {}
@@ -177,11 +182,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     def to_dict(self, include_all=False):
         res = super(out_type, self).to_dict(include_all=include_all)
 
-        if method_type == 'instance':
-            raise RuntimeError(
-                "Operations created from @as_operation(method_type='instance') can not be converted to dict"
-            )
-        elif method_type == 'class':
+        if method_type is not None:
             res['type'] = get_import_path(first_arg, func_to_execute.__name__)
         else:
             res['type'] = get_import_path(func_to_execute)
@@ -196,7 +197,8 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         this_args = self.get_this_args()
         args = ['%s=%s' % i for i in this_args.iteritems()]
         args = [e if len(e) < 20 else e[:17] + '...' for e in args]
-        res = '%s(%s)' % (out_name or to_wrap.__name__, ', '.join(args))
+        res = '{}({})'.format(out_name, ', '.join(args))
+
         if first_arg is not None:
             if method_type == 'class':
                 first_arg_name = first_arg.__name__
@@ -213,7 +215,6 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     cls_attrs['get_this_args'] = get_this_args
     cls_attrs['to_dict'] = to_dict
 
-    out_name = out_name or to_wrap.__name__
     cls = Operation.type2spec_class(out_name)
     if cls is None:
         # if the class does not exist, create it
