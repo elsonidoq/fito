@@ -713,7 +713,10 @@ def obj_from_path(path):
         obj_path = parts[1].split('.')
 
     fromlist = '.'.join(full_path.split('.')[:-1])
-    module = __import__(full_path, fromlist=fromlist)
+    try:
+        module = __import__(full_path, fromlist=fromlist)
+    except ImportError:
+        raise RuntimeError("Couldn't import {}".format(path))
 
     obj = module
     for attr in obj_path: obj = getattr(obj, attr)
