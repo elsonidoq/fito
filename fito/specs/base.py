@@ -1,3 +1,4 @@
+import ctypes
 import inspect
 import json
 from StringIO import StringIO
@@ -8,7 +9,6 @@ import os
 from memoized_property import memoized_property
 
 from fito.specs.utils import recursive_map, is_iterable, general_iterator
-
 
 # it's a constant that is different from every other object
 _no_default = object()
@@ -29,9 +29,11 @@ try:
         kwargs['default'] = json_util.default
         return dump(*args, **kwargs)
 
+
     # how should we handle datetimes? This forces non timezone aware datetimes
     # TODO: Either throw exception when a tz aware datetime is received, or handle both correctly
     json_options = JSONOptions(tz_aware=False)
+
 
     def json_loads(*args, **kwargs):
         kwargs['object_hook'] = partial(json_util.object_hook, json_options=json_options)
@@ -51,12 +53,10 @@ try:
 except ImportError:
     warnings.warn("Couldn't import json_util from bson, won't be able to handle datetime")
 
-
 try:
     import yaml
 except ImportError:
     warnings.warn("Couldn't yaml, some features won't be enabled")
-
 
 
 class Field(object):
@@ -589,7 +589,9 @@ class Spec(object):
         for attr, attr_type in cls.get_fields():
             val = kwargs.get(attr, attr_type.default)
 
-            if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and kwargs[attr].startswith('import '):
+            if (isinstance(attr_type, PrimitiveField) and
+                    isinstance(val, basestring) and
+                    kwargs[attr].startswith('import ')):
                 kwargs[attr] = obj_from_path(val[len('import '):])
 
             elif isinstance(attr_type, BaseSpecField) and val is not None and attr in kwargs:
@@ -673,7 +675,11 @@ def get_import_path(obj, *attrs):
     The inverse function of get_import_path is obj_from_path
     """
     mod = inspect.getmodule(obj)
-    res = '{}:{}'.format(mod.__name__, obj.__name__)
+    if inspect.isclass(obj):
+        res = '{}:{}'.format(mod.__name__, obj.__name__)
+    else:
+        res = '{}:{}@{}'.format(mod.__name__, type(obj).__name__, id(obj))
+
     if attrs:
         for attr in attrs:
             res = '{}.{}'.format(res, attr)
@@ -710,6 +716,18 @@ def obj_from_path(path):
     module = __import__(full_path, fromlist=fromlist)
 
     obj = module
-    for attr in obj_path: obj = getattr(obj, attr)
-
+    for i, attr in enumerate(obj_path):
+        if '@' in attr:
+            assert i == 0
+            attr, id = attr.split('@')
+            klass = getattr(obj, attr)
+            instance = load_object(int(id))
+            assert isinstance(instance, klass)
+            obj = instance
+        else:
+            obj = getattr(obj, attr)
     return obj
+
+
+def load_object(id):
+    return ctypes.cast(id, ctypes.py_object).value
