@@ -29,17 +29,19 @@ try:
         kwargs['default'] = json_util.default
         return dump(*args, **kwargs)
 
-    # how should we handle datetimes? This forces non timezone aware datetimes
-    # TODO: Either throw exception when a tz aware datetime is received, or handle both correctly
-    json_util.DEFAULT_JSON_OPTIONS = json_util.JSONOptions(tz_aware=False)
+    def set_default_json_options():
+        # how should we handle datetimes? This forces non timezone aware datetimes
+        # TODO: Either throw exception when a tz aware datetime is received, or handle both correctly
+        res = json_util.DEFAULT_JSON_OPTIONS = json_util.JSONOptions(tz_aware=False)
+        return res
 
     def json_loads(*args, **kwargs):
-        kwargs['object_hook'] = json_util.object_hook
+        kwargs['object_hook'] = partial(json_util.object_hook, json_options=set_default_json_options())
         return loads(*args, **kwargs)
 
 
     def json_load(*args, **kwargs):
-        kwargs['object_hook'] = json_util.object_hook
+        kwargs['object_hook'] = partial(json_util.object_hook, json_options=set_default_json_options())
         return load(*args, **kwargs)
 
 
