@@ -2,13 +2,13 @@ from copy import deepcopy
 
 import yaml
 from fito import Spec, DictDataStore
-from fito.specs.utils import general_iterator, general_new, is_iterable
+from fito.specs.utils import general_iterator, general_new, is_iterable, recursive_map
 
 cache = DictDataStore()
 
 
 class ApplicationContext(object):
-    objects = {}
+    objects = None
 
     @classmethod
     def load(cls, *fnames):
@@ -17,7 +17,14 @@ class ApplicationContext(object):
             with open(fname) as f:
                 fnames_contents.append(f.read())
 
-        big_yaml = '\n'.join(fnames_contents)
+        return cls.load_from_strings(*fnames_contents)
+
+    @classmethod
+    def load_from_strings(cls, *strings):
+        if cls.objects is not None:
+            raise RuntimeError('Can not load ApplicationContext twice. We need @cache.autosave for instance methods!')
+
+        big_yaml = '\n'.join(strings)
 
         objects = yaml.load(big_yaml)
 
@@ -44,9 +51,19 @@ class ApplicationContext(object):
 
 def resolve(obj):
     res = general_new(obj)
-    for k, v in general_iterator(obj):
+
+    def try_load(v):
         if isinstance(v, basestring) and v.startswith('$'):
-            v = ctx._get_raw(v[1:])
+            return ctx._get_raw(v[1:])
+        else:
+            return v
+
+    for k, v in general_iterator(obj):
+        if is_iterable(v):
+            v = recursive_map(v, try_load)
+        else:
+            v = try_load(v)
+
         res[k] = v
     return res
 
