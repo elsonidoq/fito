@@ -1,10 +1,7 @@
-import tempfile
 import unittest
 
-from fito.data_store.file import FileDataStore, RawSerializer, PickleSerializer
-from data_store import delete
 from fito.data_store.mongo import MongoHashMap
-from spec import get_test_specs
+from test_spec import get_test_specs
 
 
 class TestMongoDataStore(unittest.TestCase):

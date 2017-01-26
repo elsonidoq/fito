@@ -4,8 +4,8 @@ from fito import DictDataStore
 from fito import Spec
 from fito import SpecField
 from fito import ioc
-from spec import SpecA
-from spec import SpecC
+from test_spec import SpecA
+from test_spec import SpecC
 
 
 class OtherSpec(Spec):
@@ -14,12 +14,12 @@ class OtherSpec(Spec):
 a_contexts = [
 """
 some:
-    type: spec:SpecA
+    type: test_spec:SpecA
     field1: 1
 """,
 """
 some:
-    type: spec:SpecA
+    type: test_spec:SpecA
     field1: 2
 """
 ]
@@ -27,14 +27,14 @@ some:
 b_contexts = [
 """
 thing:
-    type: spec:SpecC
+    type: test_spec:SpecC
     spec_list:
         - $some
 """,
 
 """
 thing:
-    type: spec:SpecC
+    type: test_spec:SpecC
     spec_list:
         - $some
         - $some
