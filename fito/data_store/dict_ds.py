@@ -18,3 +18,8 @@ class DictDataStore(BaseDataStore):
 
     def iterkeys(self):
         return self.data.iterkeys()
+
+    def clean(self):
+        self.data = {}
+
+

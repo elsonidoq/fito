@@ -1,12 +1,13 @@
 coverage erase
 
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest spec
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest operation_runner
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest operation
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest data_store
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest file_data_store
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest mongo_data_store
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest decorators
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest model
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_spec
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_operation_runner
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_operation
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_data_store
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_file_data_store
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_mongo_data_store
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_decorators
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_model
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_ioc
 
 coverage html
