@@ -103,9 +103,8 @@ class FileDataStore(BaseDataStore):
             with open(key_fname) as f:
                 key = f.read()
 
-            if len(key) == 0 and time() - os.path.getctime(key_fname) < 0.5:
-                sleep(0.5)
-                print "sleep(0.5)"
+            if len(key) == 0 and time() - os.path.getctime(key_fname) < 0.1:
+                sleep(0.1)
                 with open(key_fname) as f:
                     key = f.read()
             if key == spec.key and self.serializer.exists(subdir): break
@@ -121,7 +120,7 @@ class FileDataStore(BaseDataStore):
         except Exception:
             raise KeyError('{} not found'.format(spec))
 
-    def save(self, spec, series):
+    def get_dir_for_saving(self, spec):
         dir = self._get_dir(spec)
         # this accounts for both checking if it not exists, and the fact that there might
         # be another process doing the same thing
@@ -135,7 +134,8 @@ class FileDataStore(BaseDataStore):
             if not os.path.exists(key_fname): continue
             with open(key_fname) as f:
                 key = f.read()
-            if key == spec.key: break
+            if key == spec.key:
+                return subdir
         else:
             while True:
                 subdirs = map(int, os.listdir(dir))
@@ -146,10 +146,12 @@ class FileDataStore(BaseDataStore):
                 subdir = os.path.join(dir, subdir)
                 try:
                     os.makedirs(subdir)
-                    break
+                    return subdir
                 except OSError:
                     pass
 
+    def save(self, spec, series):
+        subdir = self.get_dir_for_saving(spec)
         with open(os.path.join(subdir, 'key'), 'w') as f:
             f.write(spec.key)
 

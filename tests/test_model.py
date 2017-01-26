@@ -25,8 +25,8 @@ class Stage2Impl1(Stage2):
 
 
 class Pepe(Model):
-    stage1 = ModelField(base_type=Stage1)
-    stage2 = ModelField(base_type=Stage2)
+    stage1 = ModelField(grid=[Stage1Impl1, Stage1Impl2])
+    stage2 = ModelField(grid=[Stage2Impl1])
 
 
 class TestModel(unittest.TestCase):
