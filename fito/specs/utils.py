@@ -1,6 +1,9 @@
 """
 Helper functions that allows you to receive and handle collections in a uniform way
 """
+import inspect
+
+
 def general_new(iterable):
     return type(iterable)()
 
@@ -44,13 +47,26 @@ def recursive_map(iterable, callable, recursion_condition=None):
     Example:
     >>> recursive_map([[1], {"some": 3, "stuff":10}], lambda x:x+1)
     >>> [[2], {'some': 4, 'stuff': 11}]
+
+    >>> recursive_map([[1], {2: 3, 5: 10}], lambda k, v:k+v)
+    >>> [[1], {2: 5, 5: 15}]
+
     """
     recursion_condition = recursion_condition or is_iterable
     res = general_new(iterable)
+
+    callable_nargs = len(inspect.getargspec(callable).args) - inspect.ismethod(callable)
+    if callable_nargs == 0 or callable_nargs > 2:
+        raise RuntimeError("`callable` should be a one or two argument function")
+
     for k, v in general_iterator(iterable):
         if recursion_condition(v):
-            res = general_append(res, k, recursive_map(v, callable, recursion_condition))
+            res = general_append(res, k, recursive_map(callable(v), callable, recursion_condition))
         else:
-            res = general_append(res, k, callable(v))
+
+            if callable_nargs == 1: v = callable(v)
+            else: v = callable(k, v)
+
+            res = general_append(res, k, v)
     return res
 
