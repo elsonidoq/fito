@@ -98,7 +98,7 @@ class TestIOC(unittest.TestCase):
 
 def reset_ctx():
     ioc.ctx.objects = None
-    ioc.ctx.get.operation_class.out_data_store.clean()
+    ioc.ctx.get.operation_class.default_data_store.clean()
 
 
 
