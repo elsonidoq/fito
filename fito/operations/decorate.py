@@ -224,9 +224,8 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
             setattr(cls, k, v)
 
     if cache_on is not None:
-        cls.out_data_store = cache_on
+        cls.default_data_store = cache_on
     else:
-        cls.out_data_store = Operation.out_data_store
-
+        cls.default_data_store = None
 
     return cls
