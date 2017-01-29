@@ -144,7 +144,8 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     f_spec = f_spec or inspect.getargspec(to_wrap)
 
     out_name = out_name or to_wrap.__name__
-    if method_type == 'instance':
+    if method_type == 'instance' and not isinstance(first_arg, Spec):
+        # Only when it's an instance we can identify
         out_name = '{}@{}'.format(out_name, id(first_arg))
 
     default_values = get_default_values(f_spec)
