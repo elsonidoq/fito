@@ -1,3 +1,4 @@
+import ctypes
 import inspect
 import json
 from StringIO import StringIO
@@ -6,9 +7,9 @@ from functools import total_ordering
 import os
 
 from memoized_property import memoized_property
+import re
 
 from fito.specs.utils import recursive_map, is_iterable, general_iterator
-
 
 # it's a constant that is different from every other object
 _no_default = object()
@@ -35,6 +36,7 @@ try:
         res = json_util.DEFAULT_JSON_OPTIONS = json_util.JSONOptions(tz_aware=False)
         return res
 
+
     def json_loads(*args, **kwargs):
         kwargs['object_hook'] = partial(json_util.object_hook, json_options=set_default_json_options())
         return loads(*args, **kwargs)
@@ -53,12 +55,10 @@ try:
 except ImportError:
     warnings.warn("Couldn't import json_util from bson, won't be able to handle datetime")
 
-
 try:
     import yaml
 except ImportError:
     warnings.warn("Couldn't yaml, some features won't be enabled")
-
 
 
 class Field(object):
@@ -253,7 +253,7 @@ class SpecMeta(type):
         fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
 
         if fields_pos != range(len(fields_pos)):
-            raise ValueError("Bad `pos` for attribute %s" % name)
+            raise ValueError("Bad `pos` for attribute in class %s" % name)
 
         if 'key' in fields:
             raise ValueError("Can not use the `key` field, it's reserved")
@@ -597,7 +597,9 @@ class Spec(object):
         for attr, attr_type in cls.get_fields():
             val = kwargs.get(attr, attr_type.default)
 
-            if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring) and kwargs[attr].startswith('import '):
+            if (isinstance(attr_type, PrimitiveField) and
+                    isinstance(val, basestring) and
+                    kwargs[attr].startswith('import ')):
                 kwargs[attr] = obj_from_path(val[len('import '):])
 
             elif isinstance(attr_type, BaseSpecField) and val is not None and attr in kwargs:
@@ -681,7 +683,16 @@ def get_import_path(obj, *attrs):
     The inverse function of get_import_path is obj_from_path
     """
     mod = inspect.getmodule(obj)
-    res = '{}:{}'.format(mod.__name__, obj.__name__)
+
+    if inspect.isclass(obj) or inspect.isfunction(obj):
+        res = '{}:{}'.format(mod.__name__, obj.__name__)
+    elif isinstance(obj, Spec):
+        # TODO: this implies that I assume that the Spec key is enough to describe any Spec
+        if obj.key.endswith('.instance_method'): import ipdb;ipdb.set_trace()
+        res = 'key: ({})'.format(obj.key)
+    else:
+        res = '{}:{}@{}'.format(mod.__name__, type(obj).__name__, id(obj))
+
     if attrs:
         for attr in attrs:
             res = '{}.{}'.format(res, attr)
@@ -706,21 +717,44 @@ def obj_from_path(path):
     >>> obj_from_path('fito.specs.base:Spec.dict2spec')
     <function fito.specs.base.dict2spec>
     """
-    parts = path.split(':')
-    assert len(parts) <= 2
+    if path.startswith('key: '):
+        gd = re.match('^key: \((?P<key>.*?)\)(\.(?P<attrs>.*?))?$',  path).groupdict()
 
-    obj_path = []
-    full_path = parts[0]
-    if len(parts) == 2:
-        obj_path = parts[1].split('.')
+        res = Spec.key2spec(gd['key'])
 
-    fromlist = '.'.join(full_path.split('.')[:-1])
-    try:
-        module = __import__(full_path, fromlist=fromlist)
-    except ImportError:
-        raise RuntimeError("Couldn't import {}".format(path))
+        for attr in gd.get('attrs', '').split('.'):
+            res = getattr(res, attr)
+        return res
 
-    obj = module
-    for attr in obj_path: obj = getattr(obj, attr)
+    else:
+        parts = path.split(':')
+        assert len(parts) <= 2
 
-    return obj
+        obj_path = []
+        full_path = parts[0]
+        if len(parts) == 2:
+            obj_path = parts[1].split('.')
+
+        fromlist = '.'.join(full_path.split('.')[:-1])
+
+        try:
+            module = __import__(full_path, fromlist=fromlist)
+        except ImportError:
+            raise RuntimeError("Couldn't import {}".format(path))
+
+        obj = module
+        for i, attr in enumerate(obj_path):
+            if '@' in attr:
+                assert i == 0
+                attr, id = attr.split('@')
+                klass = getattr(obj, attr)
+                instance = load_object(int(id))
+                assert isinstance(instance, klass)
+                obj = instance
+            else:
+                obj = getattr(obj, attr)
+        return obj
+
+
+def load_object(id):
+    return ctypes.cast(id, ctypes.py_object).value

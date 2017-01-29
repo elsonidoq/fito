@@ -1,7 +1,7 @@
 import ctypes
 
 from fito import OperationRunner
-from fito.specs.base import Spec, SpecField, _no_default
+from fito.specs.base import Spec, SpecField, _no_default, PrimitiveField, load_object
 
 
 class Operation(Spec):
@@ -24,39 +24,20 @@ class Operation(Spec):
 
 
 class MemoryObject(Operation):
-    def __init__(self, *args, **kwargs):
-        super(MemoryObject, self).__init__(*args, **kwargs)
-        fields = self.get_primitive_fields()
-
-        if len(fields) != 1:
-            raise RuntimeError("Memory object subclasses must have exactly one primitive field to refer the object")
-
-        self.object_field_name = fields.iterkeys().next()
-
-    @property
-    def object(self):
-        return getattr(self, self.object_field_name)
+    obj = PrimitiveField(0)
 
     def apply(self, runner):
-        return self.object
+        return self.obj
 
     def to_dict(self, include_all=False):
         res = super(MemoryObject, self).to_dict(include_all=include_all)
-        res[self.object_field_name] = id(self.object)
+        res['obj'] = id(self.obj)
         return res
 
     @classmethod
     def _from_dict(cls, kwargs, path=None):
         res = super(MemoryObject, cls)._from_dict(kwargs, path=path)
-
-        setattr(
-            res,
-            res.object_field_name,
-            ctypes.cast(
-                getattr(res, res.object_field_name),
-                ctypes.py_object
-            ).value
-        )
+        res.obj = load_object(res.obj)
         return res
 
 

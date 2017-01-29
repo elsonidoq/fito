@@ -1,7 +1,7 @@
 import unittest
 from random import Random
 
-from fito import DictDataStore
+from fito import DictDataStore, Spec
 from fito import SpecField
 from fito.operations.decorate import as_operation
 from fito.operations.operation import Operation, MemoryObject
@@ -17,7 +17,7 @@ def base_case(i=0):
 def f(op, val=1): return val
 
 
-class Test(object):
+class ObjectWithOperations(object):
     @as_operation(method_type='instance', op=SpecField(base_type=base_case))
     def op1(self, op, val=1): return 1
 
@@ -25,14 +25,27 @@ class Test(object):
     def op2(cls, op): return 1
 
 
-def get_test_operations(only_serializable=True):
+class SpecWithOperations(Spec):
+    a = PrimitiveField(0)
+
+    @as_operation(method_type='instance')
+    def instance_method(self, b):
+        return self.a + b
+
+    @as_operation(method_type='class')
+    def class_method(cls):
+        return cls.a
+
+
+def get_test_operations():
     res = [
         base_case(),
         f(base_case()),
-        Test.op2(base_case()),
+        ObjectWithOperations.op2(base_case()),
+        SpecWithOperations(1).instance_method(2),
+        SpecWithOperations.class_method(),
+        ObjectWithOperations().op1(base_case())
     ]
-    if not only_serializable:
-        res.append(Test().op1(base_case()))
 
     input = DictDataStore()
     numbers = [Number(i) for i in xrange(10)]
@@ -68,10 +81,6 @@ class AddOperation(Numeric):
         return '{} + {}'.format(self.left, self.right)
 
 
-class List(MemoryObject):
-    l = PrimitiveField(0)
-
-
 class TestOperation(unittest.TestCase):
     def test_methods(self):
         for op in get_test_operations():
@@ -80,5 +89,5 @@ class TestOperation(unittest.TestCase):
             repr(op)
 
     def test_memory_object(self):
-        l = List(range(10))
-        assert l.l == List.dict2spec(l.to_dict()).l
+        l = MemoryObject(range(10))
+        assert l.obj == MemoryObject.dict2spec(l.to_dict()).obj
