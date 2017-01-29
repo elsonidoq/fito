@@ -6,10 +6,16 @@ from fito.specs.base import Spec, SpecField, _no_default, PrimitiveField, load_o
 
 class Operation(Spec):
     out_data_store = SpecField(default=None, serialize=False)
+    default_data_store = None
 
     def execute(self, runner=None):
         if self.out_data_store is not None:
-            return self.out_data_store.get_or_execute(self, runner)
+            out_data_store = self.out_data_store
+        else:
+            out_data_store = self.default_data_store
+
+        if out_data_store is not None:
+            return out_data_store.get_or_execute(self, runner)
         else:
             return (runner or OperationRunner()).execute(self)
 

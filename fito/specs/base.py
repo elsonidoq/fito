@@ -17,7 +17,7 @@ import warnings
 
 try:
     from bson import json_util
-    from bson.json_util import JSONOptions
+    from bson import json_util
     from json import dumps, dump, load, loads
 
 
@@ -30,19 +30,20 @@ try:
         kwargs['default'] = json_util.default
         return dump(*args, **kwargs)
 
-
-    # how should we handle datetimes? This forces non timezone aware datetimes
-    # TODO: Either throw exception when a tz aware datetime is received, or handle both correctly
-    json_options = JSONOptions(tz_aware=False)
+    def set_default_json_options():
+        # how should we handle datetimes? This forces non timezone aware datetimes
+        # TODO: Either throw exception when a tz aware datetime is received, or handle both correctly
+        res = json_util.DEFAULT_JSON_OPTIONS = json_util.JSONOptions(tz_aware=False)
+        return res
 
 
     def json_loads(*args, **kwargs):
-        kwargs['object_hook'] = partial(json_util.object_hook, json_options=json_options)
+        kwargs['object_hook'] = partial(json_util.object_hook, json_options=set_default_json_options())
         return loads(*args, **kwargs)
 
 
     def json_load(*args, **kwargs):
-        kwargs['object_hook'] = partial(json_util.object_hook, json_options=json_options)
+        kwargs['object_hook'] = partial(json_util.object_hook, json_options=set_default_json_options())
         return load(*args, **kwargs)
 
 
@@ -242,6 +243,12 @@ class SpecMeta(type):
         :return: New Spec subclass
         """
         res = type.__new__(cls, name, bases, dct)
+
+        if '..' in repr(res):
+            raise RuntimeError(
+                "Received a weird module path ({}). This seems to happen when ".format(repr(res)) +
+                "a class is imported indirectly from a yaml"
+            )
         fields = dict(res.get_fields())
         fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
 
@@ -729,7 +736,11 @@ def obj_from_path(path):
             obj_path = parts[1].split('.')
 
         fromlist = '.'.join(full_path.split('.')[:-1])
-        module = __import__(full_path, fromlist=fromlist)
+
+        try:
+            module = __import__(full_path, fromlist=fromlist)
+        except ImportError:
+            raise RuntimeError("Couldn't import {}".format(path))
 
         obj = module
         for i, attr in enumerate(obj_path):
