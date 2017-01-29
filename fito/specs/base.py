@@ -245,7 +245,7 @@ class SpecMeta(type):
         fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
 
         if fields_pos != range(len(fields_pos)):
-            raise ValueError("Bad `pos` for attribute %s" % name)
+            raise ValueError("Bad `pos` for attribute in class %s" % name)
 
         if 'key' in fields:
             raise ValueError("Can not use the `key` field, it's reserved")
