@@ -30,6 +30,7 @@ try:
         kwargs['default'] = json_util.default
         return dump(*args, **kwargs)
 
+
     def set_default_json_options():
         # how should we handle datetimes? This forces non timezone aware datetimes
         # TODO: Either throw exception when a tz aware datetime is received, or handle both correctly
@@ -88,6 +89,13 @@ class Field(object):
 
     def __eq__(self, other):
         return self is other
+
+    def __repr__(self):
+        args = []
+        if self.pos is not None: args.append('{}'.format(self.pos))
+        if self.default is not _no_default: args.append('default={}'.format(self.default))
+        if not self.serialize: args.append('serialize={}'.format(self.serialize))
+        return '{}({})'.format(type(self).__name__, ', '.join(args))
 
 
 class PrimitiveField(Field):
@@ -187,7 +195,7 @@ def SpecField(pos=None, default=_no_default, base_type=None, serialize=True):
     if base_type is not None:
         assert issubclass(base_type, Spec)
         return_type = type(
-            'SpecField{}'.format(base_type.__name__),
+            'SpecFieldFor_{}'.format(base_type.__name__),
             (BaseSpecField, base_type),
             {}
         )
@@ -243,6 +251,8 @@ class SpecMeta(type):
         :return: New Spec subclass
         """
         res = type.__new__(cls, name, bases, dct)
+        if res.__doc__ is None:
+            res.__doc__ = res.get_default_doc_string()
 
         if '..' in repr(res):
             raise RuntimeError(
@@ -667,6 +677,17 @@ class Spec(object):
         else:
             return obj
 
+    @classmethod
+    def get_default_doc_string(cls):
+        fields = list(cls.get_fields())
+        fields.sort(key=lambda x: x[1].pos or len(fields))
+
+        res = ['\n\t{} fields: '.format(cls.__name__)]
+        for attr, attr_type in fields:
+            res.append('\t\t{} = {}'.format(attr, attr_type))
+
+        return '\n'.join(res) + '\n'
+
 
 def get_import_path(obj, *attrs):
     """
@@ -718,7 +739,7 @@ def obj_from_path(path):
     <function fito.specs.base.dict2spec>
     """
     if path.startswith('key: '):
-        gd = re.match('^key: \((?P<key>.*?)\)(\.(?P<attrs>.*?))?$',  path).groupdict()
+        gd = re.match('^key: \((?P<key>.*?)\)(\.(?P<attrs>.*?))?$', path).groupdict()
 
         res = Spec.key2spec(gd['key'])
 
