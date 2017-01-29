@@ -7,6 +7,7 @@ from functools import total_ordering
 import os
 
 from memoized_property import memoized_property
+import re
 
 from fito.specs.utils import recursive_map, is_iterable, general_iterator
 
@@ -675,8 +676,13 @@ def get_import_path(obj, *attrs):
     The inverse function of get_import_path is obj_from_path
     """
     mod = inspect.getmodule(obj)
-    if inspect.isclass(obj):
+
+    if inspect.isclass(obj) or inspect.isfunction(obj):
         res = '{}:{}'.format(mod.__name__, obj.__name__)
+    elif isinstance(obj, Spec):
+        # TODO: this implies that I assume that the Spec key is enough to describe any Spec
+        if obj.key.endswith('.instance_method'): import ipdb;ipdb.set_trace()
+        res = 'key: ({})'.format(obj.key)
     else:
         res = '{}:{}@{}'.format(mod.__name__, type(obj).__name__, id(obj))
 
@@ -704,29 +710,39 @@ def obj_from_path(path):
     >>> obj_from_path('fito.specs.base:Spec.dict2spec')
     <function fito.specs.base.dict2spec>
     """
-    parts = path.split(':')
-    assert len(parts) <= 2
+    if path.startswith('key: '):
+        gd = re.match('^key: \((?P<key>.*?)\)(\.(?P<attrs>.*?))?$',  path).groupdict()
 
-    obj_path = []
-    full_path = parts[0]
-    if len(parts) == 2:
-        obj_path = parts[1].split('.')
+        res = Spec.key2spec(gd['key'])
 
-    fromlist = '.'.join(full_path.split('.')[:-1])
-    module = __import__(full_path, fromlist=fromlist)
+        for attr in gd.get('attrs', '').split('.'):
+            res = getattr(res, attr)
+        return res
 
-    obj = module
-    for i, attr in enumerate(obj_path):
-        if '@' in attr:
-            assert i == 0
-            attr, id = attr.split('@')
-            klass = getattr(obj, attr)
-            instance = load_object(int(id))
-            assert isinstance(instance, klass)
-            obj = instance
-        else:
-            obj = getattr(obj, attr)
-    return obj
+    else:
+        parts = path.split(':')
+        assert len(parts) <= 2
+
+        obj_path = []
+        full_path = parts[0]
+        if len(parts) == 2:
+            obj_path = parts[1].split('.')
+
+        fromlist = '.'.join(full_path.split('.')[:-1])
+        module = __import__(full_path, fromlist=fromlist)
+
+        obj = module
+        for i, attr in enumerate(obj_path):
+            if '@' in attr:
+                assert i == 0
+                attr, id = attr.split('@')
+                klass = getattr(obj, attr)
+                instance = load_object(int(id))
+                assert isinstance(instance, klass)
+                obj = instance
+            else:
+                obj = getattr(obj, attr)
+        return obj
 
 
 def load_object(id):
