@@ -40,7 +40,7 @@ class TestDataStore(unittest.TestCase):
 
         # This is just because MongoHashMap does not handle ints on dictionary keys
         test_specs = get_test_specs(only_lists=True)
-        test_operations = get_test_operations(only_serializable=True)
+        test_operations = get_test_operations()
         self.indexed_operations = test_operations[:len(test_operations) / 2]
         self.indexed_specs = test_specs[:len(test_specs) / 2] + self.indexed_operations
         self.not_indexed_specs = test_specs[len(test_specs) / 2:] + test_operations[len(test_operations) / 2:]
