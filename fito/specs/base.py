@@ -5,6 +5,7 @@ from StringIO import StringIO
 from functools import partial
 from functools import total_ordering
 import os
+import traceback
 
 from memoized_property import memoized_property
 import re
@@ -241,6 +242,9 @@ class ArgsField(SpecCollection):
         return [tuple, list]
 
 
+class WeirdModulePathException(Exception): pass
+
+
 class SpecMeta(type):
     def __new__(cls, name, bases, dct):
         """
@@ -255,7 +259,7 @@ class SpecMeta(type):
             res.__doc__ = res.get_default_doc_string()
 
         if '..' in repr(res):
-            raise RuntimeError(
+            raise WeirdModulePathException(
                 "Received a weird module path ({}). This seems to happen when ".format(repr(res)) +
                 "a class is imported indirectly from a yaml"
             )
@@ -760,6 +764,9 @@ def obj_from_path(path):
 
         try:
             module = __import__(full_path, fromlist=fromlist)
+        except WeirdModulePathException, e:
+            traceback.print_exc()
+            raise RuntimeError("Couldn't import {}".format(path) + '\n' + e.args[0])
         except ImportError:
             raise RuntimeError("Couldn't import {}".format(path))
 
