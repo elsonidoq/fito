@@ -2,11 +2,11 @@ import ctypes
 import inspect
 import json
 import os
-import re
 import traceback
 import warnings
 from functools import partial
 from functools import total_ordering
+from itertools import chain
 
 from fito.specs.fields import KwargsField, ArgsField, Field, BaseSpecField, SpecCollection, UnboundField, \
     PrimitiveField
@@ -408,7 +408,14 @@ class Spec(object):
         import path spec
         :return: A subclass of Spec
         """
-        if ':' in spec_type:
+        if not isinstance(spec_type, dict) and not isinstance(spec_type, basestring):
+            raise ValueError("Invalid type for spec_type")
+
+        if (
+                        isinstance(spec_type, dict) or
+                            ':' in spec_type or
+                        '.' in spec_type
+        ):
             cls = obj_from_path(spec_type)
             assert issubclass(cls, Spec), "The provided path does not point to an Spec subclass"
             return cls
@@ -569,18 +576,30 @@ def get_import_path(obj, *attrs):
     """
     mod = inspect.getmodule(obj)
 
-    if inspect.isclass(obj) or inspect.isfunction(obj):
-        res = '{}:{}'.format(mod.__name__, obj.__name__)
-    elif isinstance(obj, Spec):
+    if isinstance(obj, Spec):
         # TODO: this implies that I assume that the Spec key is enough to describe any Spec
-        res = 'key: ({})'.format(obj.key)
-    else:
-        res = '{}:{}@{}'.format(mod.__name__, type(obj).__name__, id(obj))
+        if len(attrs) == 1:
+            res = {
+                'method': attrs[0]
+            }
+        else:
+            res = {
+                'attrs': list(attrs)
+            }
 
-    if attrs:
-        for attr in attrs:
-            res = '{}.{}'.format(res, attr)
-    return res
+        res['self'] = obj.to_dict()
+        return res
+
+    else:
+        if inspect.isclass(obj) or inspect.isfunction(obj):
+            res = '{}:{}'.format(mod.__name__, obj.__name__)
+        else:
+            res = '{}:{}@{}'.format(mod.__name__, type(obj).__name__, id(obj))
+
+        if attrs:
+            for attr in attrs:
+                res = '{}.{}'.format(res, attr)
+        return res
 
 
 def obj_from_path(path):
@@ -601,14 +620,18 @@ def obj_from_path(path):
     >>> obj_from_path('fito.specs.base:Spec.dict2spec')
     <function fito.specs.base.dict2spec>
     """
-    if path.startswith('key: '):
-        gd = re.match('^key: \((?P<key>.*?)\)(\.(?P<attrs>.*?))?$', path).groupdict()
+    if isinstance(path, dict):
+        res = Spec.dict2spec(path['self'])
 
-        res = Spec.key2spec(gd['key'])
+        attrs = chain(
+            [path['method']] if 'method' in path else [],
+            path.get('attrs') or []
+        )
 
-        for attr in gd.get('attrs', '').split('.'):
+        for attr in attrs:
             res = getattr(res, attr)
         return res
+
 
     else:
         parts = path.split(':')
@@ -624,6 +647,8 @@ def obj_from_path(path):
         try:
             module = __import__(full_path, fromlist=fromlist)
         except WeirdModulePathException, e:
+            # This on is thrown by SpecMeta when there's a ".." inside a class path
+            # I don't know yet why this happens, but at least I know *when* it does happen :)
             traceback.print_exc()
             raise RuntimeError("Couldn't import {}".format(path) + '\n' + e.args[0])
         except ImportError:
@@ -642,6 +667,25 @@ def obj_from_path(path):
             else:
                 obj = getattr(obj, attr)
         return obj
+
+
+def parse_string_path(path):
+    parts = path.split(':')
+
+    assert len(parts) == 2
+    full_path, class_name = parts
+
+    fromlist = '.'.join(full_path.split('.')[:-1])
+
+    try:
+        module = __import__(full_path, fromlist=fromlist)
+    except ImportError:
+        raise RuntimeError("Couldn't import {}".format(path))
+
+    try:
+        return getattr(module, class_name)
+    except AttributeError:
+        raise RuntimeError("Couldn't get '{}' attribute from module '{}'".format(class_name, module))
 
 
 def load_object(id):
