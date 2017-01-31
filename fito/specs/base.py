@@ -97,6 +97,9 @@ class Field(object):
         if not self.serialize: args.append('serialize={}'.format(self.serialize))
         return '{}({})'.format(type(self).__name__, ', '.join(args))
 
+    def has_default_value(self):
+        return self.default is not _no_default
+
 
 class PrimitiveField(Field):
     """
