@@ -16,19 +16,19 @@ class OperationRunner(Spec):
         else:
             self.cache = FifoCache(self.cache_size, self.verbose)
 
-    def execute(self, operation):
+    def execute(self, operation, **extra):
         """
         Executes an operation using this data store as input
         If this data store was configured to use an execute cache, it will be used
         """
         in_cache = False
         if self.cache is None:
-            res = operation.apply(self)
+            res = operation.apply(self, operation.build_context(**extra))
         else:
             res = self.cache.get(operation)
             if res is self.cache.no_result:
                 in_cache = True
-                res = operation.apply(self)
+                res = operation.apply(self, operation.build_context(**extra))
                 self.cache.set(operation, res)
 
         if operation.out_data_store is not None and not in_cache:

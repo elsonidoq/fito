@@ -85,7 +85,7 @@ class BaseDataStore(Spec):
     def __contains__(self, spec):
         return self.get_or_none(spec) is not None
 
-    def get_or_execute(self, operation, operation_runner=None):
+    def get_or_execute(self, operation, operation_runner=None, **extra):
         """
         Base function for all autocaching
 
@@ -93,7 +93,7 @@ class BaseDataStore(Spec):
         :return:
         """
         if operation not in self:
-            res = (operation_runner or self.operation_runner).execute(operation)
+            res = (operation_runner or self.operation_runner).execute(operation, **extra)
             self[operation] = res
         else:
             try:
@@ -104,7 +104,7 @@ class BaseDataStore(Spec):
                 warnings.warn("There was an error loading from cache, executing again...")
                 traceback.print_exc()
 
-                res = (operation_runner or self.operation_runner).execute(operation)
+                res = (operation_runner or self.operation_runner).execute(operation, **extra)
                 self[operation] = res
 
         return res
