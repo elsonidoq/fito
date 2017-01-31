@@ -613,7 +613,7 @@ class Spec(object):
 
             if (isinstance(attr_type, PrimitiveField) and
                     isinstance(val, basestring) and
-                    kwargs[attr].startswith('import ')):
+                    val.startswith('import ')):
                 kwargs[attr] = obj_from_path(val[len('import '):])
 
             elif isinstance(attr_type, BaseSpecField) and val is not None and attr in kwargs:
