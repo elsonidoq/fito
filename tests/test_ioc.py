@@ -1,4 +1,6 @@
+from tempfile import mktemp
 import unittest
+import yaml
 
 from fito import Spec
 from fito import SpecField
@@ -82,7 +84,18 @@ class TestIOC(unittest.TestCase):
 
         for doc in self.combinations:
 
-            ctx = ApplicationContext.load_from_strings(doc['contexts'])
+            fnames = []
+            for c in doc['contexts']:
+                fname = mktemp()
+                fnames.append(fname)
+                with open(fname, 'w') as f:
+                    f.write(c)
+
+            general_fname = mktemp()
+            with open(general_fname, 'w') as f:
+                yaml.dump({'import': fnames}, f)
+
+            ctx = ApplicationContext.load(general_fname)
 
             for func, ans in answers.iteritems():
                 func_answer = ans['ans'][doc['meta'][ans['id']]]
@@ -93,4 +106,6 @@ class TestIOC(unittest.TestCase):
                     print 'actual answer:',  func()
                     print 'expected answer:',  func_answer
                     assert False
+
+
 
