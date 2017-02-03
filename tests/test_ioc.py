@@ -83,7 +83,7 @@ class TestIOC(unittest.TestCase):
 
         for doc in self.combinations:
 
-            ctx = ApplicationContext.load_from_strings(*doc['contexts'])
+            ctx = ApplicationContext.load_from_strings(doc['contexts'])
 
             for func, ans in answers.iteritems():
                 func_answer = ans['ans'][doc['meta'][ans['id']]]

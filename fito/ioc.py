@@ -1,8 +1,41 @@
+import os
+
 import yaml
+
 from fito import Spec, DictDataStore
 from fito.specs.utils import general_iterator, general_new, is_iterable, recursive_map
 
-cache = DictDataStore()
+
+def recursive_load(strings, paths=None):
+    if paths is not None:
+        assert len(paths) == len(strings)
+        assert all(map(os.path.exists, paths))
+
+    all_objects = map(yaml.load, strings)
+    included_files = []
+    res = {}
+    for i, d in enumerate(all_objects):
+        imports = d.pop('import', [])
+        if isinstance(imports, basestring): imports = [imports]
+
+        for fname in imports:
+            if paths is None: raise RuntimeError('Can not handle imports without paths')
+            fname = os.path.join(paths[i], fname)
+            included_files.append(fname)
+
+        for obj_name, obj in d.iteritems():
+            if obj_name in res:
+                raise RuntimeError("the object name {} is defined more than once".format(obj_name))
+            res[obj_name] = obj
+
+    if included_files:
+        tmp_ctx = ApplicationContext.load(*included_files)
+        for obj_name, obj in tmp_ctx.objects.iteritems():
+            if obj_name in res:
+                raise RuntimeError("the object name {} is defined more than once".format(obj_name))
+            res[obj_name] = obj
+
+    return res
 
 
 class ApplicationContext(object):
@@ -12,19 +45,20 @@ class ApplicationContext(object):
     @classmethod
     def load(cls, *fnames):
         fnames_contents = []
+        paths = []
         for fname in fnames:
+            paths.append(os.path.abspath(os.path.dirname(fname)))
             with open(fname) as f:
                 fnames_contents.append(f.read())
 
-        return cls.load_from_strings(*fnames_contents)
+        return cls.load_from_strings(fnames_contents, paths=paths)
 
     @classmethod
-    def load_from_strings(cls, *strings):
-        big_yaml = '\n'.join(strings)
-
-        objects = yaml.load(big_yaml)
-
+    def load_from_strings(cls, strings, paths=None):
+        objects = recursive_load(strings, paths)
         return cls(objects)
+
+    cache = DictDataStore()
 
     @cache.autosave(method_type='instance')
     def get(self, name):
@@ -35,7 +69,6 @@ class ApplicationContext(object):
 
         return res
 
-    @cache.autosave(method_type='instance')
     def _get_raw(self, name):
         res = self.objects[name]
 
@@ -61,4 +94,3 @@ class ApplicationContext(object):
 
             res[k] = v
         return res
-

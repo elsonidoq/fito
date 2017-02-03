@@ -454,7 +454,16 @@ class Spec(object):
         """
         :param include_toggles: Wether to include or not toggle_fields, default=False
         """
-        res = {'type': get_import_path(type(self))}
+        import_path = get_import_path(type(self))
+        if inspect.getmodule(type(self)).__name__ == '__main__':
+            warnings.warn(
+                """
+                The module of {} is __main__.
+                It's likely that you are not going to be able to desserialize this spec
+                """
+            )
+
+        res = {'type': import_path}
 
         for attr, attr_type in type(self).get_fields():
             val = getattr(self, attr)
