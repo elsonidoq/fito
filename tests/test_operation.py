@@ -4,13 +4,18 @@ from random import Random
 from fito import DictDataStore, Spec
 from fito import SpecField
 from fito.operations.decorate import as_operation
-from fito.operations.operation import Operation, MemoryObject
+from fito.operations.operation import Operation, MemoryObject, UnbindedPrimitiveField, UnbindedSpecField
 from fito.specs.base import PrimitiveField
 
 
 @as_operation()
 def base_case(i=0):
     return i
+
+
+@as_operation(b=UnbindedPrimitiveField)
+def partial(a, b):
+    return a + b
 
 
 @as_operation(op=SpecField)
@@ -25,8 +30,9 @@ class ObjectWithOperations(object):
     def op2(cls, op): return 1
 
 
-class SpecWithOperations(Spec):
+class SpecWithOperations(Operation):
     a = PrimitiveField(0)
+    b = UnbindedSpecField(0)
 
     @as_operation(method_type='instance')
     def instance_method(self, b):
@@ -35,6 +41,9 @@ class SpecWithOperations(Spec):
     @as_operation(method_type='class')
     def class_method(cls):
         return cls.a
+
+    def apply(self, runner):
+        return self.a + runner.execute(self.b)
 
 
 def get_test_operations():
