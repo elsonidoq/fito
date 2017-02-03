@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 import yaml
 from fito import Spec, DictDataStore
 from fito.specs.utils import general_iterator, general_new, is_iterable, recursive_map
@@ -8,7 +6,8 @@ cache = DictDataStore()
 
 
 class ApplicationContext(object):
-    objects = None
+    def __init__(self, objects):
+        self.objects = objects
 
     @classmethod
     def load(cls, *fnames):
@@ -21,51 +20,45 @@ class ApplicationContext(object):
 
     @classmethod
     def load_from_strings(cls, *strings):
-        if cls.objects is not None:
-            raise RuntimeError('Can not load ApplicationContext twice. We need @cache.autosave for instance methods!')
-
         big_yaml = '\n'.join(strings)
 
         objects = yaml.load(big_yaml)
 
-        cls.objects = objects
+        return cls(objects)
 
-    @cache.autosave(method_type='class')
-    def get(cls, name):
-        res = cls._get_raw(name)
+    @cache.autosave(method_type='instance')
+    def get(self, name):
+        res = self._get_raw(name)
 
         if isinstance(res, dict) and 'type' in res:
             res = Spec.dict2spec(res)
 
         return res
 
-    @cache.autosave(method_type='class')
-    def _get_raw(cls, name):
-        res = cls.objects[name]
+    @cache.autosave(method_type='instance')
+    def _get_raw(self, name):
+        res = self.objects[name]
 
         if is_iterable(res):
-            res = resolve(res)
+            res = self.resolve(res)
 
         return res
 
+    def resolve(self, obj):
+        res = general_new(obj)
 
-def resolve(obj):
-    res = general_new(obj)
+        def try_load(v):
+            if isinstance(v, basestring) and v.startswith('$'):
+                return self._get_raw(v[1:])
+            else:
+                return v
 
-    def try_load(v):
-        if isinstance(v, basestring) and v.startswith('$'):
-            return ctx._get_raw(v[1:])
-        else:
-            return v
+        for k, v in general_iterator(obj):
+            if is_iterable(v):
+                v = recursive_map(v, try_load)
+            else:
+                v = try_load(v)
 
-    for k, v in general_iterator(obj):
-        if is_iterable(v):
-            v = recursive_map(v, try_load)
-        else:
-            v = try_load(v)
+            res[k] = v
+        return res
 
-        res[k] = v
-    return res
-
-
-ctx = ApplicationContext
