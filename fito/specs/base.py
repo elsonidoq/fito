@@ -181,7 +181,7 @@ class BaseSpecField(Field):
         return [Spec if self.base_type is None else self.base_type]
 
 
-def SpecField(pos=None, default=_no_default, base_type=None, serialize=True):
+def SpecField(pos=None, default=_no_default, base_type=None, serialize=True, spec_field_subclass=None):
     """
     Builds a SpecField
 
@@ -189,21 +189,24 @@ def SpecField(pos=None, default=_no_default, base_type=None, serialize=True):
     :param default: Default value
     :param base_type: Base type, it does some type checkig + avoids some warnings from IntelliJ
     :param serialize: Whether this spec field should be included in the serialization of the object
+    :param spec_field_subclass: Sublcass of BaseSpecField, useful to extend the lib
 
     :return:
     """
     if not serialize and default is _no_default:
         raise RuntimeError("If serialize == False, the field should have a default value")
 
+    spec_field_subclass = spec_field_subclass or BaseSpecField
+
     if base_type is not None:
         assert issubclass(base_type, Spec)
         return_type = type(
             'SpecFieldFor_{}'.format(base_type.__name__),
-            (BaseSpecField, base_type),
+            (spec_field_subclass, base_type),
             {}
         )
     else:
-        return_type = BaseSpecField
+        return_type = spec_field_subclass
 
     return return_type(pos=pos, default=default, base_type=base_type, serialize=serialize)
 
@@ -316,9 +319,10 @@ class Spec(object):
     __metaclass__ = SpecMeta
 
     def __init__(self, *args, **kwargs):
-        # Get the field spec
         fields = dict(self.get_fields())
+        self.initialize(fields, *args, **kwargs)
 
+    def initialize(self, fields, *args, **kwargs):
         pos2name = {}
         kwargs_field = None
         args_field = None
@@ -327,9 +331,13 @@ class Spec(object):
                 pos2name[attr_type.pos] = attr_name
 
             elif isinstance(attr_type, KwargsField):
+                if kwargs_field is not None:
+                    raise RuntimeError("A spec can have at most one kwargs field, found {} and {}".format(attr_name, kwargs_field))
                 kwargs_field = attr_name
 
             elif isinstance(attr_type, ArgsField):
+                if args_field is not None:
+                    raise RuntimeError("A spec can have at most one args field, found {} and {}".format(attr_name, kwargs_field))
                 args_field = attr_name
 
         if len(pos2name) == 0:
@@ -351,17 +359,14 @@ class Spec(object):
         # These guys are the ones that are going to be passed to the instance
         args_param_value = []
         kwargs_param_value = {}
-
         for i, arg in enumerate(args):
             if args_field is not None and i >= max_nargs:
                 args_param_value.append(arg)
             else:
                 kwargs[pos2name[i]] = arg
-
         for attr, attr_type in fields.iteritems():
             if attr_type.default is not _no_default and attr not in kwargs:
                 kwargs[attr] = attr_type.default
-
         if kwargs_field is not None:
             kwargs_param_value = {
                 attr: attr_type
@@ -374,14 +379,12 @@ class Spec(object):
                 for attr, attr_type in kwargs.iteritems()
                 if attr in fields and attr != kwargs_field and attr != args_field
                 }
-
         if len(kwargs) > len(fields):
             raise InvalidSpecInstance("Class %s does not take the following arguments: %s" % (
                 type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
         elif len(kwargs) < len(fields) - (args_field is not None) - (kwargs_field is not None):
             raise InvalidSpecInstance("Missing arguments for class %s: %s" % (
                 type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
-
         for attr, attr_type in fields.iteritems():
             val = kwargs.get(attr)
             if val is None: continue
@@ -390,19 +393,17 @@ class Spec(object):
                     "Invalid value for parameter {} in {}. Received {}, expected {}".format(
                         attr, type(self).__name__, val, attr_type.allowed_types)
                 )
-
         for attr in kwargs:
             if attr not in fields:
                 raise InvalidSpecInstance("Received extra parameter {}".format(attr))
-
         if args_field is not None:
             setattr(self, args_field, tuple(args_param_value))
-
         if kwargs_field is not None:
             setattr(self, kwargs_field, kwargs_param_value)
-
         for attr, attr_type in kwargs.iteritems():
             setattr(self, attr, attr_type)
+
+        return self
 
     def copy(self):
         return type(self)._from_dict(self.to_dict(include_all=True))
