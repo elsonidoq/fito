@@ -428,9 +428,7 @@ class Spec(object):
     @staticmethod
     def key2spec(str):
         try:
-            if str.startswith('/'): str = str[1:]
-            kwargs = Spec.__key2dict(json.loads(str))
-            return Spec.dict2spec(kwargs)
+            return Spec.dict2spec(Spec.key2dict(str))
         except ValueError, e:
             raise e
         except Exception, e:
@@ -521,11 +519,16 @@ class Spec(object):
         return {'transformed': True, 'dict': sorted(d.iteritems(), key=lambda x: x[0])}
 
     @classmethod
-    def __key2dict(cls, obj):
+    def key2dict(cls, str):
+        if str.startswith('/'): str = str[1:]
+        return cls._key2dict(json.loads(str))
+
+    @classmethod
+    def _key2dict(cls, obj):
         if isinstance(obj, dict) and obj.get('transformed') is True and 'dict' in obj:
             res = dict(obj['dict'])
             for k, v in res.iteritems():
-                res[k] = cls.__key2dict(v)
+                res[k] = cls._key2dict(v)
             return res
         else:
             return obj
@@ -562,7 +565,6 @@ def get_import_path(obj, *attrs):
         res = '{}:{}'.format(mod.__name__, obj.__name__)
     elif isinstance(obj, Spec):
         # TODO: this implies that I assume that the Spec key is enough to describe any Spec
-        if obj.key.endswith('.instance_method'): import ipdb;ipdb.set_trace()
         res = 'key: ({})'.format(obj.key)
     else:
         res = '{}:{}@{}'.format(mod.__name__, type(obj).__name__, id(obj))
