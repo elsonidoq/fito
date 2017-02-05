@@ -14,6 +14,7 @@ setup(
     zip_safe=False,
     install_requires=[
         'mmh3',
-        'memoized_property'
+        'memoized_property',
+        'PyYAML'
     ],
 )
