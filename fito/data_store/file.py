@@ -1,11 +1,14 @@
+import json
 import mmh3
 import os
 import pickle
 import shutil
 import traceback
 from contextlib import contextmanager
+from pprint import pprint
 from time import time, sleep
 
+import yaml
 from fito import PrimitiveField
 from fito import Spec
 from fito import SpecField
@@ -56,7 +59,7 @@ class RawSerializer(SingleFileSerializer):
 class FileDataStore(BaseDataStore):
     path = PrimitiveField(0)
     split_keys = PrimitiveField(default=True)
-    serializer = SpecField(default=PickleSerializer(), base_type=Serializer)
+    serializer = SpecField(default=None, base_type=Serializer)
     use_class_name = PrimitiveField(default=False, help='Whether the first level should be the class name')
     _check_conf = True  # Just to avoid an infinite loop on __init__, see disabled_conf_checking
 
@@ -68,22 +71,34 @@ class FileDataStore(BaseDataStore):
         conf_file = os.path.join(self.path, 'conf.yaml')
         if self._check_conf and os.path.exists(conf_file):
 
-            with self.disabled_conf_checking():
-                conf = Spec.from_yaml().load(conf_file)
+            with open(conf_file) as f:
+                conf = yaml.load(f)
 
-            if conf != self:
+            conf_serializer = Spec.dict2spec(conf['serializer'])
+            conf_use_class_name = conf.get('use_class_name', False)
+
+            if conf_use_class_name != self.use_class_name:
                 raise RuntimeError(
-                    """
-This store was initialized with this config:\n{}
-
-But was now instanced with this:\n{}
-                    """.format(
-                        conf.yaml.dumps(),
-                        self.yaml.dumps()
+                    'This store was initialized with use_class_name = {} and now was instanced with {}'.format(
+                        conf_use_class_name,
+                        self.use_class_name
                     )
                 )
 
+            if self.serializer is not None and self.serializer != conf_serializer:
+                raise RuntimeError(
+                    "This store was initialized with this serializer:\n{}\n\n" +
+                    "But was now instanced with this one:\n{}".format(
+                        json.dumps(conf['serializer'], indent=2),
+                        json.dumps(self.serializer.to_dict(), indent=2)
+                    )
+                )
+
+            self.serializer = conf_serializer
+            self.use_class_name = conf_use_class_name
         else:
+            if self.serializer is None: self.serializer = PickleSerializer()
+
             with open(conf_file, 'w') as f:
                 self.yaml.dump(f)
 
@@ -214,4 +229,3 @@ But was now instanced with this:\n{}
             return self.serializer.exists(subdir)
         except KeyError:
             return False
-
