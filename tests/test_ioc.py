@@ -1,6 +1,5 @@
 import unittest
 
-from fito import DictDataStore
 from fito import Spec
 from fito import SpecField
 from fito import ioc

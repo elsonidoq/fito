@@ -3,7 +3,7 @@ import warnings
 
 from fito.model import Model
 from fito.model import ModelParameter
-from fito.specs.base import CollectionField, PrimitiveField
+from fito.specs.fields import CollectionField, PrimitiveField
 
 try:
     from gensim.models import Word2Vec as GensimWord2Vec

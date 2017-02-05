@@ -1,7 +1,6 @@
-import ctypes
-
 from fito import OperationRunner
-from fito.specs.base import Spec, SpecField, _no_default, PrimitiveField, load_object
+from fito.specs.base import Spec, load_object
+from fito.specs.fields import SpecField, _no_default, PrimitiveField
 
 
 class Operation(Spec):
@@ -43,3 +42,5 @@ class MemoryObject(Operation):
 
 def OperationField(pos=None, default=_no_default, base_type=None):
     return SpecField(pos=pos, default=default, base_type=base_type or Operation)
+
+

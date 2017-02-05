@@ -4,7 +4,8 @@ from collections import defaultdict
 from itertools import product
 
 from fito import Operation
-from fito.specs.base import PrimitiveField, _no_default, BaseSpecField, SpecField, Field, Spec
+from fito.specs.base import Spec
+from fito.specs.fields import PrimitiveField, _no_default, BaseSpecField
 
 try:
     from sklearn.model_selection import ParameterGrid

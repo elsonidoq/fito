@@ -4,7 +4,8 @@ import inspect
 from functools import wraps
 
 from fito.operations.operation import Operation
-from fito.specs.base import PrimitiveField, BaseSpecField, Spec, KwargsField, SpecField, get_import_path
+from fito.specs.fields import UnbindedField, PrimitiveField, BaseSpecField, KwargsField, SpecField
+from fito.specs.base import get_import_path, Spec
 
 try:
     import cPickle
@@ -152,7 +153,9 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     default_values = get_default_values(f_spec)
 
     attrs = {}
-    for i, arg in enumerate(f_spec.args):
+    binded_pos = 0
+    unbinded_pos = 0
+    for arg in f_spec.args:
         if method_type == 'instance' and arg == 'self': continue
         if method_type == 'class' and arg == 'cls': continue
 
@@ -163,7 +166,13 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
             # It can be either a class, or the instance itself
             if inspect.isclass(spec) or inspect.isfunction(spec): spec = spec()
 
-            spec.pos = len(attrs)
+            if isinstance(spec, UnbindedField):
+                spec.pos = unbinded_pos
+                unbinded_pos += 1
+            else:
+                spec.pos = binded_pos
+                binded_pos += 1
+
         else:
             spec = PrimitiveField(len(attrs))
 
