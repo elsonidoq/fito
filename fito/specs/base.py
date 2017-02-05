@@ -280,7 +280,7 @@ class Spec(object):
                 """
                 The module of {} is __main__.
                 It's likely that you are not going to be able to desserialize this spec
-                """
+                """.format(type(self))
             )
 
         res = {'type': import_path}
