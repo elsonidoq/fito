@@ -175,10 +175,10 @@ class Spec(object):
         if len(args) > max_nargs and args_field is None:
             raise InvalidSpecInstance(
                 (
-                    "This spec was instanced with {given_args} positional arguments, but I only know how "
+                    "Class '{type_name}' was instanced with {given_args} positional arguments, but I only know how "
                     "to handle the first {specified_args} positional arguments.\n"
                     "Instance the fields with `pos` keyword argument (e.g. PrimitiveField(pos=0))"
-                ).format(given_args=len(args), specified_args=max_nargs)
+                ).format(type_name=type(self).__name__, given_args=len(args), specified_args=max_nargs)
             )
 
         # These guys are the ones that are going to be passed to the instance
