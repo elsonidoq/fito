@@ -33,6 +33,7 @@ class TestDataStore(unittest.TestCase):
             file.FileDataStore(file_data_store_preffix),
             file.FileDataStore(file_data_store_preffix + '_with_get_cache', get_cache_size=10),
             file.FileDataStore(file_data_store_preffix + '_dont_split_keys', split_keys=False),
+            file.FileDataStore(file_data_store_preffix + '_use_class_name', use_class_name=True),
 
             dict_ds.DictDataStore(),
         ]
