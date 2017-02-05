@@ -3,6 +3,7 @@ import os
 import pickle
 import shutil
 from time import time, sleep
+import traceback
 
 from fito import PrimitiveField
 from fito import Spec
@@ -118,7 +119,8 @@ class FileDataStore(BaseDataStore):
         try:
             return self.serializer.load(subdir)
         except Exception:
-            raise KeyError('{} not found'.format(spec))
+            traceback.print_exc()
+            raise KeyError('Failed to load spec')
 
     def get_dir_for_saving(self, spec):
         dir = self._get_dir(spec)

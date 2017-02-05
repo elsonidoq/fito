@@ -3,6 +3,7 @@ import unittest
 from fito import Spec
 from fito import SpecField
 from fito import ioc
+from fito.ioc import ApplicationContext
 from test_spec import SpecA
 from test_spec import SpecC
 
@@ -69,9 +70,9 @@ class TestIOC(unittest.TestCase):
                     )
 
     def test_ioc(self):
-        def some_field(): return ioc.ctx.get('some').field1
-        def thing_len(): return len(ioc.ctx.get('thing').spec_list)
-        def nice_type(): return type(ioc.ctx.get('nice').spec)
+        def some_field(ctx): return ctx.get('some').field1
+        def thing_len(ctx): return len(ctx.get('thing').spec_list)
+        def nice_type(ctx): return type(ctx.get('nice').spec)
 
         answers = {
             some_field: {'id': 0, 'ans': [1, 2]},
@@ -81,23 +82,15 @@ class TestIOC(unittest.TestCase):
 
         for doc in self.combinations:
 
-            reset_ctx()
-            ioc.ctx.load_from_strings(*doc['contexts'])
+            ctx = ApplicationContext.load_from_strings(doc['contexts'])
 
             for func, ans in answers.iteritems():
                 func_answer = ans['ans'][doc['meta'][ans['id']]]
 
-                if func() != func_answer:
+                if func(ctx) != func_answer:
                     print '\n'.join(doc['contexts'])
                     print 'func:', func
                     print 'actual answer:',  func()
                     print 'expected answer:',  func_answer
                     assert False
-
-
-def reset_ctx():
-    ioc.ctx.objects = None
-    ioc.ctx.get.operation_class.default_data_store.clean()
-
-
 

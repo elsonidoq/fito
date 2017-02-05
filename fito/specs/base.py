@@ -4,8 +4,10 @@ import json
 from functools import partial
 from functools import total_ordering
 import os
+import traceback
 
-from fito.specs.fields import KwargsField, ArgsField, Field, BaseSpecField, SpecCollection, UnbindedField, PrimitiveField
+from fito.specs.fields import KwargsField, ArgsField, Field, BaseSpecField, SpecCollection, UnbindedField, \
+    PrimitiveField
 from memoized_property import memoized_property
 import re
 
@@ -60,6 +62,9 @@ except ImportError:
     warnings.warn("Couldn't yaml, some features won't be enabled")
 
 
+class WeirdModulePathException(Exception): pass
+
+
 class SpecMeta(type):
     def __new__(cls, name, bases, dct):
         """
@@ -74,7 +79,7 @@ class SpecMeta(type):
             res.__doc__ = res.get_default_doc_string()
 
         if '..' in repr(res):
-            raise RuntimeError(
+            raise WeirdModulePathException(
                 "Received a weird module path ({}). This seems to happen when ".format(repr(res)) +
                 "a class is imported indirectly from a yaml"
             )
@@ -145,12 +150,14 @@ class Spec(object):
 
             elif isinstance(attr_type, KwargsField):
                 if kwargs_field is not None:
-                    raise RuntimeError("A spec can have at most one kwargs field, found {} and {}".format(attr_name, kwargs_field))
+                    raise RuntimeError(
+                        "A spec can have at most one kwargs field, found {} and {}".format(attr_name, kwargs_field))
                 kwargs_field = attr_name
 
             elif isinstance(attr_type, ArgsField):
                 if args_field is not None:
-                    raise RuntimeError("A spec can have at most one args field, found {} and {}".format(attr_name, kwargs_field))
+                    raise RuntimeError(
+                        "A spec can have at most one args field, found {} and {}".format(attr_name, kwargs_field))
                 args_field = attr_name
 
         if len(pos2name) == 0:
@@ -267,7 +274,16 @@ class Spec(object):
         """
         :param include_toggles: Wether to include or not toggle_fields, default=False
         """
-        res = {'type': get_import_path(type(self))}
+        import_path = get_import_path(type(self))
+        if inspect.getmodule(type(self)).__name__ == '__main__':
+            warnings.warn(
+                """
+                The module of {} is __main__.
+                It's likely that you are not going to be able to desserialize this spec
+                """
+            )
+
+        res = {'type': import_path}
 
         for attr, attr_type in type(self).get_fields():
             val = getattr(self, attr)
@@ -359,7 +375,6 @@ class Spec(object):
         fields = dict(self.get_unbinded_fields())
         return self.initialize(fields, *args, **kwargs)
 
-
     @classmethod
     def _get_all_subclasses(cls):
         res = []
@@ -442,7 +457,7 @@ class Spec(object):
 
             if (isinstance(attr_type, PrimitiveField) and
                     isinstance(val, basestring) and
-                    kwargs[attr].startswith('import ')):
+                    val.startswith('import ')):
                 kwargs[attr] = obj_from_path(val[len('import '):])
 
             elif isinstance(attr_type, BaseSpecField) and val is not None and attr in kwargs:
@@ -593,6 +608,9 @@ def obj_from_path(path):
 
         try:
             module = __import__(full_path, fromlist=fromlist)
+        except WeirdModulePathException, e:
+            traceback.print_exc()
+            raise RuntimeError("Couldn't import {}".format(path) + '\n' + e.args[0])
         except ImportError:
             raise RuntimeError("Couldn't import {}".format(path))
 
