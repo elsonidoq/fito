@@ -8,28 +8,36 @@ from test_spec import get_test_specs
 
 class TestFileDataStore(unittest.TestCase):
     def setUp(self):
-        self.ds = FileDataStore(tempfile.mktemp(), serializer=RawSerializer())
+        self.data_stores = [
+            FileDataStore(tempfile.mktemp(), serializer=RawSerializer()),
+            FileDataStore(tempfile.mktemp(), use_class_name=True),
+            FileDataStore(tempfile.mktemp(), serializer=PickleSerializer()),
+        ]
 
         self.test_specs = get_test_specs(only_lists=True)
 
     def tearDown(self):
-        delete(self.ds.path)
+        for ds in self.data_stores:
+            delete(ds.path)
 
     def test_existing_path(self):
-        assert self.ds.serializer == FileDataStore(self.ds.path).serializer
-        self.assertRaises(RuntimeError, FileDataStore, self.ds.path, serializer=PickleSerializer())
+        for ds in self.data_stores:
+            self.assertRaises(RuntimeError, FileDataStore, ds.path, use_class_name=not ds.use_class_name)
+            other_serializer = PickleSerializer() if isinstance(ds.serializer, RawSerializer) else RawSerializer()
+            self.assertRaises(RuntimeError, FileDataStore, ds.path, serializer=other_serializer)
 
     def test_clean(self):
-        self.ds[self.test_specs[0]] = ""
+        for ds in self.data_stores:
+            ds[self.test_specs[0]] = ""
 
-        try:
-            self.ds.iterkeys().next()
-        except:
-            assert False
+            try:
+                ds.iterkeys().next()
+            except:
+                assert False
 
-        self.ds.clean()
+            ds.clean()
 
-        self.assertRaises(StopIteration, self.ds.iterkeys().next)
+            self.assertRaises(StopIteration, ds.iterkeys().next)
 
 
 
