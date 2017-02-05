@@ -2,8 +2,9 @@ import mmh3
 import os
 import pickle
 import shutil
-from time import time, sleep
 import traceback
+from contextlib import contextmanager
+from time import time, sleep
 
 from fito import PrimitiveField
 from fito import Spec
@@ -19,10 +20,45 @@ class Serializer(Spec):
     def exists(self, subdir): raise NotImplemented()
 
 
+class SingleFileSerializer(Serializer):
+    def get_fname(self, subdir): raise NotImplemented()
+
+    def exists(self, subdir):
+        return os.path.exists(self.get_fname(subdir))
+
+
+class PickleSerializer(SingleFileSerializer):
+    def get_fname(self, subdir):
+        return os.path.join(subdir, 'obj.pkl')
+
+    def save(self, obj, subdir):
+        with open(self.get_fname(subdir), 'w') as f:
+            pickle.dump(obj, f, 2)
+
+    def load(self, subdir):
+        with open(self.get_fname(subdir)) as f:
+            return pickle.load(f)
+
+
+class RawSerializer(SingleFileSerializer):
+    def get_fname(self, subdir):
+        return os.path.join(subdir, 'obj.raw')
+
+    def save(self, obj, subdir):
+        with open(self.get_fname(subdir), 'w') as f:
+            f.write(obj)
+
+    def load(self, subdir):
+        with open(self.get_fname(subdir)) as f:
+            return f.read()
+
+
 class FileDataStore(BaseDataStore):
     path = PrimitiveField(0)
     split_keys = PrimitiveField(default=True)
-    serializer = SpecField(default=None, base_type=Serializer)
+    serializer = SpecField(default=PickleSerializer(), base_type=Serializer)
+    use_class_name = PrimitiveField(default=False, help='Whether the first level should be the class name')
+    _check_conf = True  # Just to avoid an infinite loop on __init__, see disabled_conf_checking
 
     def __init__(self, *args, **kwargs):
         super(FileDataStore, self).__init__(*args, **kwargs)
@@ -30,24 +66,34 @@ class FileDataStore(BaseDataStore):
         if not os.path.exists(self.path): os.makedirs(self.path)
 
         conf_file = os.path.join(self.path, 'conf.yaml')
-        if os.path.exists(conf_file):
-            conf_serializer = Spec.from_yaml().load(conf_file)
+        if self._check_conf and os.path.exists(conf_file):
 
-            if self.serializer is None:
-                self.serializer = conf_serializer
-            else:
-                if conf_serializer != self.serializer:
-                    raise RuntimeError(
-                        'This store was initialized with {} Serializer, but now received {}'.format(
-                            conf_serializer,
-                            self.serializer)
+            with self.disabled_conf_checking():
+                conf = Spec.from_yaml().load(conf_file)
+
+            if conf != self:
+                raise RuntimeError(
+                    """
+This store was initialized with this config:\n{}
+
+But was now instanced with this:\n{}
+                    """.format(
+                        conf.yaml.dumps(),
+                        self.yaml.dumps()
                     )
+                )
 
         else:
-            self.serializer = self.serializer or PickleSerializer()
-
             with open(conf_file, 'w') as f:
-                self.serializer.yaml.dump(f)
+                self.yaml.dump(f)
+
+    @contextmanager
+    def disabled_conf_checking(self):
+        try:
+            type(self)._check_conf = False
+            yield
+        finally:
+            type(self)._check_conf = True
 
     def clean(self, cls=None):
         for op in self.iterkeys():
@@ -69,7 +115,8 @@ class FileDataStore(BaseDataStore):
             try:
                 op = Spec.key2spec(key)
             except Exception, e:  # there might be a key that is not a valid json
-                if len(e.args) > 0 and isinstance(e.args[0], basestring) and e.args[0].startswith('Unknown spec type'): raise e
+                if len(e.args) > 0 and isinstance(e.args[0], basestring) and e.args[0].startswith(
+                        'Unknown spec type'): raise e
                 continue
 
             yield op
@@ -84,10 +131,12 @@ class FileDataStore(BaseDataStore):
 
     def _get_dir(self, spec):
         h = str(mmh3.hash(spec.key))
+        path = os.path.join(self.path, type(spec).__name__) if self.use_class_name else self.path
+
         if self.split_keys:
-            fname = os.path.join(self.path, h[:3], h[3:6], h[6:])
+            fname = os.path.join(path, h[:3], h[3:6], h[6:])
         else:
-            fname = os.path.join(self.path, h)
+            fname = os.path.join(path, h)
         return fname
 
     def _get_subdir(self, spec):
@@ -166,35 +215,3 @@ class FileDataStore(BaseDataStore):
         except KeyError:
             return False
 
-
-class SingleFileSerializer(Serializer):
-    def get_fname(self, subdir): raise NotImplemented()
-
-    def exists(self, subdir):
-        return os.path.exists(self.get_fname(subdir))
-
-
-class PickleSerializer(SingleFileSerializer):
-    def get_fname(self, subdir):
-        return os.path.join(subdir, 'obj.pkl')
-
-    def save(self, obj, subdir):
-        with open(self.get_fname(subdir), 'w') as f:
-            pickle.dump(obj, f, 2)
-
-    def load(self, subdir):
-        with open(self.get_fname(subdir)) as f:
-            return pickle.load(f)
-
-
-class RawSerializer(SingleFileSerializer):
-    def get_fname(self, subdir):
-        return os.path.join(subdir, 'obj.raw')
-
-    def save(self, obj, subdir):
-        with open(self.get_fname(subdir), 'w') as f:
-            f.write(obj)
-
-    def load(self, subdir):
-        with open(self.get_fname(subdir)) as f:
-            return f.read()
