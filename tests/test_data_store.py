@@ -8,7 +8,6 @@ from fito import Spec
 from fito import as_operation
 from fito.data_store import file, dict_ds, mongo
 from fito.data_store.mongo import get_collection, global_client
-from fito.data_store.refactor import StorageRefactor
 from test_operation import get_test_operations
 from test_spec import get_test_specs
 

@@ -10,6 +10,9 @@ class StorageRefactor(Operation):
     def add_field(self, field_name, default_value=None):
         return AddField(field_name, default_value, storage_refactor=self)
 
+    def rename_field(self, source, target):
+        return RenameField(source, target, storage_refactor=self)
+
     def remove_field(self, field_name):
         return RemoveField(field_name, storage_refactor=self)
 
@@ -51,7 +54,8 @@ class StorageRefactor(Operation):
 
         self._apply()
 
-    def _apply(self): pass
+    def _apply(self):
+        pass
 
 
 class FilterByType(StorageRefactor):
@@ -68,6 +72,14 @@ class AddField(StorageRefactor):
 
     def _apply(self):
         self.doc[self.field_name] = self.default_value
+
+
+class RenameField(StorageRefactor):
+    source = PrimitiveField(0)
+    target = PrimitiveField(1)
+
+    def _apply(self):
+        self.doc[self.target] = self.doc.pop(self.source)
 
 
 class RemoveField(StorageRefactor):
