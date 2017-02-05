@@ -9,5 +9,6 @@ coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_mongo_data_
 coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_decorators
 coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_model
 coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_ioc
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_refactor
 
 coverage html

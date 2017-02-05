@@ -1,4 +1,5 @@
 from fito.data_store.base import BaseDataStore
+from fito.specs import base
 
 
 class DictDataStore(BaseDataStore):
@@ -16,10 +17,15 @@ class DictDataStore(BaseDataStore):
         if spec not in self.data: raise KeyError("Spec not found: {}".format(spec))
         return self.data.get(spec)
 
-    def iterkeys(self):
-        return self.data.iterkeys()
+    def iterkeys(self, raw=False):
+        for key in self.data.iterkeys():
+            if raw:
+                yield key, key.to_dict()
+            else:
+                yield key
 
     def clean(self):
         self.data = {}
 
-
+    def get_by_id(self, spec):
+        return self._get(spec)

@@ -56,6 +56,12 @@ class BaseDataStore(Spec):
         """
         raise NotImplementedError()
 
+    def get_by_id(self, id):
+        """
+        Fetches the value given some id. The id is implementation specific
+        """
+        raise NotImplementedError()
+
     def save(self, spec, object):
         """
         Actual implementation that saves an object associated with the id or operation
@@ -66,6 +72,13 @@ class BaseDataStore(Spec):
         """
         Iterates over the datastore
         :return: An iterator over (operation, object) pairs
+        """
+        raise NotImplementedError()
+
+    def iterkeys(self, raw=False):
+        """
+        Iterates over the keys of the data store
+        :param raw: Whether to return raw documents or specs
         """
         raise NotImplementedError()
 
@@ -111,6 +124,12 @@ class BaseDataStore(Spec):
     def autosave(self, *args, **kwargs):
         kwargs['cache_on'] = self
         return AutosavedFunction(*args, **kwargs)
+
+    def refactor(self, refactor_operation, out_data_store):
+        for id, doc in self.iterkeys(raw=True):
+            refactor_operation.bind(doc=doc).execute()
+            spec = Spec.dict2spec(doc)
+            out_data_store[spec] = self.get_by_id(id)
 
 
 class AutosavedFunction(as_operation):

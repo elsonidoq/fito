@@ -8,6 +8,7 @@ from fito import Spec
 from fito import as_operation
 from fito.data_store import file, dict_ds, mongo
 from fito.data_store.mongo import get_collection, global_client
+from fito.data_store.refactor import StorageRefactor
 from test_operation import get_test_operations
 from test_spec import get_test_specs
 
@@ -19,28 +20,41 @@ def delete(path):
         os.unlink(path)
 
 
+def get_test_data_stores():
+    file_data_store_preffix = tempfile.mktemp()
+    base_mongo_collection = get_collection(global_client, 'test.test')
+    base_mongo_collection.drop()
+
+    return [
+        mongo.MongoHashMap(base_mongo_collection),
+        mongo.MongoHashMap(base_mongo_collection.with_get_cache, get_cache_size=10),
+        mongo.MongoHashMap(base_mongo_collection.with_incremental_id, add_incremental_id=True),
+
+        file.FileDataStore(file_data_store_preffix),
+        file.FileDataStore(file_data_store_preffix + '_with_get_cache', get_cache_size=10),
+        file.FileDataStore(file_data_store_preffix + '_dont_split_keys', split_keys=False),
+        file.FileDataStore(file_data_store_preffix + '_use_class_name', use_class_name=True),
+
+        dict_ds.DictDataStore(),
+    ]
+
+
+def clean_data_stores(data_stores):
+    for store in data_stores:
+        if isinstance(store, file.FileDataStore):
+            delete(store.path)
+        elif isinstance(store, mongo.MongoHashMap):
+            store.clean()
+
+
 class TestDataStore(unittest.TestCase):
     def setUp(self):
-        file_data_store_preffix = tempfile.mktemp()
-        base_mongo_collection = get_collection(global_client, 'test.test')
-        base_mongo_collection.drop()
-
-        self.data_stores = [
-            mongo.MongoHashMap(base_mongo_collection),
-            mongo.MongoHashMap(base_mongo_collection.with_get_cache, get_cache_size=10),
-            mongo.MongoHashMap(base_mongo_collection.with_incremental_id, add_incremental_id=True),
-
-            file.FileDataStore(file_data_store_preffix),
-            file.FileDataStore(file_data_store_preffix + '_with_get_cache', get_cache_size=10),
-            file.FileDataStore(file_data_store_preffix + '_dont_split_keys', split_keys=False),
-            file.FileDataStore(file_data_store_preffix + '_use_class_name', use_class_name=True),
-
-            dict_ds.DictDataStore(),
-        ]
+        self.data_stores = get_test_data_stores()
 
         # This is just because MongoHashMap does not handle ints on dictionary keys
         test_specs = get_test_specs(only_lists=True)
         test_operations = get_test_operations()
+
         self.indexed_operations = test_operations[:len(test_operations) / 2]
         self.indexed_specs = test_specs[:len(test_specs) / 2] + self.indexed_operations
         self.not_indexed_specs = test_specs[len(test_specs) / 2:] + test_operations[len(test_operations) / 2:]
@@ -52,11 +66,7 @@ class TestDataStore(unittest.TestCase):
                 ds[spec] = j
 
     def tearDown(self):
-        for store in self.data_stores:
-            if isinstance(store, file.FileDataStore):
-                delete(store.path)
-            elif isinstance(store, mongo.MongoHashMap):
-                store.clean()
+        clean_data_stores(self.data_stores)
 
     def test_iter_items(self):
         for ds in self.data_stores:

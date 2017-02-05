@@ -136,6 +136,11 @@ class Spec(object):
     """
     __metaclass__ = SpecMeta
 
+    # There are a lot of subclasses of Spec that are dinamically created. Sometimes it's usefull to be able to know
+    # whether that's the case or not
+    # TODO: make it read only
+    dinamically_created = False
+
     def __init__(self, *args, **kwargs):
         fields = dict(self.get_fields())
         self.initialize(fields, *args, **kwargs)
@@ -170,10 +175,10 @@ class Spec(object):
         if len(args) > max_nargs and args_field is None:
             raise InvalidSpecInstance(
                 (
-                    "This spec was instanced with {given_args} positional arguments, but I only know how "
+                    "Class '{type_name}' was instanced with {given_args} positional arguments, but I only know how "
                     "to handle the first {specified_args} positional arguments.\n"
                     "Instance the fields with `pos` keyword argument (e.g. PrimitiveField(pos=0))"
-                ).format(given_args=len(args), specified_args=max_nargs)
+                ).format(type_name=type(self).__name__, given_args=len(args), specified_args=max_nargs)
             )
 
         # These guys are the ones that are going to be passed to the instance
@@ -423,9 +428,7 @@ class Spec(object):
     @staticmethod
     def key2spec(str):
         try:
-            if str.startswith('/'): str = str[1:]
-            kwargs = Spec.__key2dict(json.loads(str))
-            return Spec.dict2spec(kwargs)
+            return Spec.dict2spec(Spec.key2dict(str))
         except ValueError, e:
             raise e
         except Exception, e:
@@ -516,11 +519,16 @@ class Spec(object):
         return {'transformed': True, 'dict': sorted(d.iteritems(), key=lambda x: x[0])}
 
     @classmethod
-    def __key2dict(cls, obj):
+    def key2dict(cls, str):
+        if str.startswith('/'): str = str[1:]
+        return cls._key2dict(json.loads(str))
+
+    @classmethod
+    def _key2dict(cls, obj):
         if isinstance(obj, dict) and obj.get('transformed') is True and 'dict' in obj:
             res = dict(obj['dict'])
             for k, v in res.iteritems():
-                res[k] = cls.__key2dict(v)
+                res[k] = cls._key2dict(v)
             return res
         else:
             return obj
@@ -557,7 +565,6 @@ def get_import_path(obj, *attrs):
         res = '{}:{}'.format(mod.__name__, obj.__name__)
     elif isinstance(obj, Spec):
         # TODO: this implies that I assume that the Spec key is enough to describe any Spec
-        if obj.key.endswith('.instance_method'): import ipdb;ipdb.set_trace()
         res = 'key: ({})'.format(obj.key)
     else:
         res = '{}:{}@{}'.format(mod.__name__, type(obj).__name__, id(obj))

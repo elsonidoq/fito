@@ -126,9 +126,12 @@ class MongoHashMap(BaseDataStore):
         d = d.copy()
         return Spec.dict2spec(d)
 
-    def iterkeys(self):
+    def iterkeys(self, raw=False):
         for doc in self.coll.find(no_cursor_timeout=False, projection=['spec']):
-            yield Spec.dict2spec(doc['spec'])
+            if raw:
+                yield doc['_id'], doc['spec']
+            else:
+                yield Spec.dict2spec(doc['spec'])
 
     def iteritems(self):
         for doc in self.coll.find(no_cursor_timeout=False):
@@ -151,6 +154,12 @@ class MongoHashMap(BaseDataStore):
     def _get(self, spec):
         doc = self._get_doc(spec)
         return self._parse_doc(doc)[1]
+
+    def get_by_id(self, id):
+        doc = self.coll.find_one({'_id': id})
+        return self._parse_doc(doc)[1]
+
+
 
     def save(self, spec, values):
         doc = self._build_doc(spec, values)
