@@ -119,7 +119,7 @@ class FileDataStore(BaseDataStore):
         subdir = self._get_subdir(op)
         shutil.rmtree(subdir)
 
-    def iterkeys(self):
+    def iterkeys(self, raw=False):
         for subdir, _, _ in os.walk(self.path):
             key_fname = os.path.join(subdir, 'key')
             if not os.path.exists(key_fname): continue
@@ -127,14 +127,21 @@ class FileDataStore(BaseDataStore):
             with open(key_fname) as f:
                 key = f.read()
 
-            try:
-                op = Spec.key2spec(key)
-            except Exception, e:  # there might be a key that is not a valid json
-                if len(e.args) > 0 and isinstance(e.args[0], basestring) and e.args[0].startswith(
-                        'Unknown spec type'): raise e
-                continue
+            if raw:
+                yield subdir, Spec.key2dict(key)
+            else:
+                try:
+                    spec = Spec.key2spec(key)
+                except Exception, e:  # there might be a key that is not a valid json
+                    if len(e.args) > 0 and isinstance(e.args[0], basestring) and e.args[0].startswith(
+                            'Unknown spec type'): raise e
+                    continue
 
-            yield op
+                yield spec
+
+    def get_by_id(self, subdir):
+        assert subdir.startswith(self.path)
+        return self.serializer.load(subdir)
 
     def iteritems(self):
         for op in self.iterkeys():
@@ -229,3 +236,4 @@ class FileDataStore(BaseDataStore):
             return self.serializer.exists(subdir)
         except KeyError:
             return False
+
