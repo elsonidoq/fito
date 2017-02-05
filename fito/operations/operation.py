@@ -1,51 +1,11 @@
 from fito import OperationRunner
-from fito.specs.base import Spec, SpecField, _no_default, PrimitiveField, load_object, Field, KwargsField, BaseSpecField
-
-
-class UnbindedField(object):
-    pass
-
-
-class BaseUnbindedSpec(BaseSpecField, UnbindedField):
-    pass
-
-
-def UnbindedSpecField(pos=None, default=_no_default, base_type=None, spec_field_subclass=None):
-    spec_field_subclass = spec_field_subclass or BaseUnbindedSpec
-    assert issubclass(spec_field_subclass, BaseUnbindedSpec)
-    return SpecField(pos=pos, default=default, base_type=base_type, spec_field_subclass=spec_field_subclass)
-
-
-class UnbindedPrimitiveField(PrimitiveField, UnbindedField):
-    pass
+from fito.specs.base import Spec, load_object
+from fito.specs.fields import SpecField, _no_default, PrimitiveField
 
 
 class Operation(Spec):
     out_data_store = SpecField(default=None, serialize=False)
     default_data_store = None
-
-    @classmethod
-    def get_fields(cls):
-        # cannot call super, because this method is called when the class is being created
-        for k in dir(cls):
-            v = getattr(cls, k)
-            if isinstance(v, Field) and not isinstance(v, UnbindedField):
-                yield k, v
-
-    @classmethod
-    def get_unbinded_fields(cls):
-        for k in dir(cls):
-            v = getattr(cls, k)
-            if isinstance(v, UnbindedField):
-                yield k, v
-
-    def bind(self, *args, **kwargs):
-        fields = dict(self.get_unbinded_fields())
-        return self.copy().initialize(fields, *args, **kwargs)
-
-    def inplace_bind(self, *args, **kwargs):
-        fields = dict(self.get_unbinded_fields())
-        return self.initialize(fields, *args, **kwargs)
 
     def execute(self, runner=None):
         if self.out_data_store is not None:
@@ -84,9 +44,3 @@ def OperationField(pos=None, default=_no_default, base_type=None):
     return SpecField(pos=pos, default=default, base_type=base_type or Operation)
 
 
-class A(Operation):
-    a = PrimitiveField(0)
-    b = UnbindedPrimitiveField(0)
-
-    def apply(self, runner):
-        return self.a + self.b

@@ -1,4 +1,5 @@
-from specs.base import PrimitiveField, SpecField, Spec
+from specs.fields import PrimitiveField, SpecField
+from specs.base import Spec
 from operation_runner import OperationRunner
 from operations.decorate import as_operation
 from operations.operation import Operation, OperationField

@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from fito import PrimitiveField
 from fito import Spec
-from fito.specs.base import NumericField
+from fito.specs.fields import NumericField
 
 
 class OperationRunner(Spec):

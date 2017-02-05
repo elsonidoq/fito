@@ -1,11 +1,12 @@
 import unittest
 from random import Random
 
-from fito import DictDataStore, Spec
+from fito import DictDataStore
 from fito import SpecField
 from fito.operations.decorate import as_operation
-from fito.operations.operation import Operation, MemoryObject, UnbindedPrimitiveField, UnbindedSpecField
-from fito.specs.base import PrimitiveField
+from fito.operations.operation import Operation, MemoryObject
+from fito.specs.fields import  UnbindedPrimitiveField, UnbindedSpecField
+from fito.specs.base import PrimitiveField, Spec
 
 
 @as_operation()
@@ -32,7 +33,6 @@ class ObjectWithOperations(object):
 
 class SpecWithOperations(Operation):
     a = PrimitiveField(0)
-    b = UnbindedSpecField(0)
 
     @as_operation(method_type='instance')
     def instance_method(self, b):
@@ -44,6 +44,14 @@ class SpecWithOperations(Operation):
 
     def apply(self, runner):
         return self.a + runner.execute(self.b)
+
+    @as_operation(method_type='instance', b=UnbindedPrimitiveField)
+    def unbinded_instance_method(self, b):
+        return self.a + b
+
+    @as_operation(method_type='class', b=UnbindedSpecField)
+    def unbinded_class_method(cls, b):
+        return b
 
 
 def get_test_operations():
@@ -64,7 +72,19 @@ def get_test_operations():
     for i in xrange(10):
         numbers.append(rnd.choice(numbers) + rnd.choice(numbers))
 
-    return res + numbers
+    return res + numbers + get_unbinded_operations(binded=True)
+
+def get_unbinded_operations(binded):
+    primitive_bind = [
+        partial(1),
+        SpecWithOperations(0).unbinded_instance_method(),
+    ]
+    spec_bind = [
+        SpecWithOperations.unbinded_class_method(),
+    ]
+    if binded:
+        res = [e.bind(1) for e in primitive_bind] + [e.bind(Spec()) for e in spec_bind]
+    return res
 
 
 class Numeric(Operation):
@@ -100,3 +120,5 @@ class TestOperation(unittest.TestCase):
     def test_memory_object(self):
         l = MemoryObject(range(10))
         assert l.obj == MemoryObject.dict2spec(l.to_dict()).obj
+
+

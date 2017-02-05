@@ -3,7 +3,6 @@ import os
 import shutil
 import tempfile
 import unittest
-from copy import deepcopy
 
 from fito import Spec
 from fito import as_operation

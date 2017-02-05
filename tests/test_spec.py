@@ -11,8 +11,9 @@ import shutil
 import yaml
 
 from fito import Spec, SpecField, PrimitiveField
-from fito.specs.base import NumericField, CollectionField, SpecCollection, InvalidSpecInstance, BaseSpecField, \
+from fito.specs.fields import NumericField, CollectionField, SpecCollection, BaseSpecField, \
     KwargsField, ArgsField
+from fito.specs.base import InvalidSpecInstance
 from fito.specs.utils import general_append
 from fito.specs import base as specs_base
 

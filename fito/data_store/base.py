@@ -2,12 +2,11 @@ import traceback
 import warnings
 from functools import wraps
 
-from fito import Operation
 from fito import Spec
 from fito import SpecField
 from fito.operation_runner import FifoCache, OperationRunner
-from fito.operations.decorate import GenericDecorator, as_operation, operation_from_func
-from fito.specs.base import NumericField, PrimitiveField
+from fito.operations.decorate import as_operation
+from fito.specs.fields import NumericField, PrimitiveField
 
 
 class BaseDataStore(Spec):

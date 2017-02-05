@@ -3,7 +3,7 @@ from random import Random
 
 from fito.operation_runner import OperationRunner
 from fito.operations.operation import Operation
-from fito.specs.base import NumericField, SpecField
+from fito.specs.fields import NumericField, SpecField
 
 
 class SentinelOperation(Operation):

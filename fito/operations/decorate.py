@@ -3,8 +3,9 @@ from __future__ import print_function
 import inspect
 from functools import wraps
 
-from fito.operations.operation import Operation, UnbindedField
-from fito.specs.base import PrimitiveField, BaseSpecField, Spec, KwargsField, SpecField, get_import_path
+from fito.operations.operation import Operation
+from fito.specs.fields import UnbindedField, PrimitiveField, BaseSpecField, KwargsField, SpecField
+from fito.specs.base import get_import_path, Spec
 
 try:
     import cPickle
