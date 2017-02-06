@@ -174,7 +174,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
                 binded_pos += 1
 
         else:
-            spec = PrimitiveField(len(attrs))
+            spec = PrimitiveField(binded_pos)
 
         if arg in default_values: spec.default = default_values[arg]
         attrs[arg] = spec
