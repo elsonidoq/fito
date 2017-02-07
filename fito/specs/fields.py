@@ -192,19 +192,19 @@ class ArgsField(SpecCollection):
         return [tuple, list]
 
 
-class UnbindedField(object):
+class UnboundField(object):
     pass
 
 
-class BaseUnbindedSpec(BaseSpecField, UnbindedField):
+class BaseUnboundSpec(BaseSpecField, UnboundField):
     pass
 
 
-def UnbindedSpecField(pos=None, default=_no_default, base_type=None, spec_field_subclass=None):
-    spec_field_subclass = spec_field_subclass or BaseUnbindedSpec
-    assert issubclass(spec_field_subclass, BaseUnbindedSpec)
+def UnboundSpecField(pos=None, default=_no_default, base_type=None, spec_field_subclass=None):
+    spec_field_subclass = spec_field_subclass or BaseUnboundSpec
+    assert issubclass(spec_field_subclass, BaseUnboundSpec)
     return SpecField(pos=pos, default=default, base_type=base_type, spec_field_subclass=spec_field_subclass)
 
 
-class UnbindedPrimitiveField(PrimitiveField, UnbindedField):
+class UnboundPrimitiveField(PrimitiveField, UnboundField):
     pass

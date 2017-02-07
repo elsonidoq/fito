@@ -1,10 +1,10 @@
 from fito.operations.operation import Operation
 from fito.specs.base import get_import_path
-from fito.specs.fields import UnbindedPrimitiveField, PrimitiveField, SpecField
+from fito.specs.fields import UnboundPrimitiveField, PrimitiveField, SpecField
 
 
 class StorageRefactor(Operation):
-    doc = UnbindedPrimitiveField(0, serialize=False)
+    doc = UnboundPrimitiveField(0, serialize=False)
     storage_refactor = SpecField(default=None)
 
     def add_field(self, field_name, default_value=None):

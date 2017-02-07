@@ -5,7 +5,7 @@ from fito import DictDataStore
 from fito import SpecField
 from fito.operations.decorate import as_operation
 from fito.operations.operation import Operation, MemoryObject
-from fito.specs.fields import  UnbindedPrimitiveField, UnbindedSpecField
+from fito.specs.fields import UnboundPrimitiveField, UnboundSpecField
 from fito.specs.base import PrimitiveField, Spec
 
 
@@ -14,7 +14,7 @@ def base_case(i=0):
     return i
 
 
-@as_operation(b=UnbindedPrimitiveField)
+@as_operation(b=UnboundPrimitiveField)
 def partial(a, b):
     return a + b
 
@@ -45,11 +45,11 @@ class SpecWithOperations(Operation):
     def apply(self, runner):
         return self.a + runner.execute(self.b)
 
-    @as_operation(method_type='instance', b=UnbindedPrimitiveField)
+    @as_operation(method_type='instance', b=UnboundPrimitiveField)
     def unbinded_instance_method(self, b):
         return self.a + b
 
-    @as_operation(method_type='class', b=UnbindedSpecField)
+    @as_operation(method_type='class', b=UnboundSpecField)
     def unbinded_class_method(cls, b):
         return b
 

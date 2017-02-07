@@ -4,7 +4,7 @@ import inspect
 from functools import wraps
 
 from fito.operations.operation import Operation
-from fito.specs.fields import UnbindedField, PrimitiveField, BaseSpecField, KwargsField, SpecField
+from fito.specs.fields import UnboundField, PrimitiveField, BaseSpecField, KwargsField, SpecField
 from fito.specs.base import get_import_path, Spec
 
 try:
@@ -166,7 +166,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
             # It can be either a class, or the instance itself
             if inspect.isclass(spec) or inspect.isfunction(spec): spec = spec()
 
-            if isinstance(spec, UnbindedField):
+            if isinstance(spec, UnboundField):
                 spec.pos = unbinded_pos
                 unbinded_pos += 1
             else:

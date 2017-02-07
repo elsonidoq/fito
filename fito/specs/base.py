@@ -1,19 +1,17 @@
 import ctypes
 import inspect
 import json
+import os
+import re
+import traceback
+import warnings
 from functools import partial
 from functools import total_ordering
-import os
-import traceback
 
-from fito.specs.fields import KwargsField, ArgsField, Field, BaseSpecField, SpecCollection, UnbindedField, \
+from fito.specs.fields import KwargsField, ArgsField, Field, BaseSpecField, SpecCollection, UnboundField, \
     PrimitiveField
+from fito.specs.utils import recursive_map, is_iterable
 from memoized_property import memoized_property
-import re
-
-from fito.specs.utils import recursive_map, is_iterable, general_iterator
-
-import warnings
 
 try:
     from bson import json_util
@@ -370,14 +368,14 @@ class Spec(object):
     def get_fields(cls):
         for k in dir(cls):
             v = getattr(cls, k)
-            if isinstance(v, Field) and not isinstance(v, UnbindedField):
+            if isinstance(v, Field) and not isinstance(v, UnboundField):
                 yield k, v
 
     @classmethod
     def get_unbinded_fields(cls):
         for k in dir(cls):
             v = getattr(cls, k)
-            if isinstance(v, UnbindedField):
+            if isinstance(v, UnboundField):
                 yield k, v
 
     def bind(self, *args, **kwargs):
