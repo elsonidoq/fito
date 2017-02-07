@@ -65,6 +65,15 @@ except ImportError:
 class WeirdModulePathException(Exception): pass
 
 
+class InvalidSpecInstance(Exception):
+    pass
+
+
+class MainModuleWarning(UserWarning): pass
+
+warnings.filterwarnings('once', '.*', MainModuleWarning, __name__)
+
+
 class SpecMeta(type):
     def __new__(cls, name, bases, dct):
         """
@@ -93,10 +102,6 @@ class SpecMeta(type):
             raise ValueError("Can not use the `key` field, it's reserved")
 
         return res
-
-
-class InvalidSpecInstance(Exception):
-    pass
 
 
 @total_ordering
@@ -285,7 +290,8 @@ class Spec(object):
                 """
                 The module of {} is __main__.
                 It's likely that you are not going to be able to desserialize this spec
-                """.format(type(self))
+                """.format(type(self)),
+                MainModuleWarning
             )
 
         res = {'type': import_path}
