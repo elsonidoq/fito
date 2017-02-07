@@ -1,7 +1,7 @@
-# Installation
+# About
 
-`pip install fito`
-
+Fito is the data science ORM. It allows you to seamlesly serialize and store 
+peaces of code, executing it
 
 # Functionality
 
@@ -61,3 +61,9 @@ This is my first open source piece of software where I'm commiting myself to man
 Let [me](https://twitter.com/ideasrapidas) know if you happen to use it! 
 
 And please, do not hesitate on sending pull requests :D
+
+# Installation
+
+`pip install fito`
+
+
