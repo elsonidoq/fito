@@ -7,6 +7,7 @@ import traceback
 from contextlib import contextmanager
 from pprint import pprint
 from time import time, sleep
+import warnings
 
 import yaml
 from fito import PrimitiveField
@@ -74,8 +75,13 @@ class FileDataStore(BaseDataStore):
             with open(conf_file) as f:
                 conf = yaml.load(f)
 
-            conf_serializer = Spec.dict2spec(conf['serializer'])
-            conf_use_class_name = conf.get('use_class_name', False)
+            if 'serializer' not in conf:
+                warnings.warn("Old conf.yaml format. Please update it to the new format")
+                conf_serializer = Spec.dict2spec(conf)
+                conf_use_class_name = False
+            else:
+                conf_serializer = Spec.dict2spec(conf['serializer'])
+                conf_use_class_name = conf.get('use_class_name', False)
 
             if conf_use_class_name != self.use_class_name:
                 raise RuntimeError(
