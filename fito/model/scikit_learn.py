@@ -23,7 +23,7 @@ class LinearRegression(SKLearnModel):
 class LogisticRegression(SKLearnModel):
     penalty = ModelParameter(default='l2', grid=['l1', 'l2'])
     dual = ModelParameter(default=False, grid=[True, False])
-    tol = PrimitiveField(default=-4)
+    tol = PrimitiveField(default=1e-4)
     C = ModelParameter(default=1.0, grid=[0.01, 0.1, 1.0])
     fit_intercept = ModelParameter(default=True, grid=[True, False])
     intercept_scaling = ModelParameter(default=1, grid=[0.1, 1, 10])
