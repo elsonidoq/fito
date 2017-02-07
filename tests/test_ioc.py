@@ -13,13 +13,14 @@ from test_spec import SpecC
 class OtherSpec(Spec):
     spec = SpecField()
 
+
 a_contexts = [
-"""
+    """
 some:
     type: test_spec:SpecA
     field1: 1
 """,
-"""
+    """
 some:
     type: test_spec:SpecA
     field1: 2
@@ -27,14 +28,14 @@ some:
 ]
 
 b_contexts = [
-"""
+    """
 thing:
     type: test_spec:SpecC
     spec_list:
         - $some
 """,
 
-"""
+    """
 thing:
     type: test_spec:SpecC
     spec_list:
@@ -44,12 +45,12 @@ thing:
 ]
 
 c_contexts = [
-"""
+    """
 nice:
     type: test_ioc:OtherSpec
     spec: $some
 """,
-"""
+    """
 nice:
     type: test_ioc:OtherSpec
     spec: $thing
@@ -72,9 +73,14 @@ class TestIOC(unittest.TestCase):
                     )
 
     def test_ioc(self):
-        def some_field(ctx): return ctx.get('some').field1
-        def thing_len(ctx): return len(ctx.get('thing').spec_list)
-        def nice_type(ctx): return type(ctx.get('nice').spec)
+        def some_field(ctx):
+            return ctx.get('some').field1
+
+        def thing_len(ctx):
+            return len(ctx.get('thing').spec_list)
+
+        def nice_type(ctx):
+            return type(ctx.get('nice').spec)
 
         answers = {
             some_field: {'id': 0, 'ans': [1, 2]},
@@ -93,9 +99,17 @@ class TestIOC(unittest.TestCase):
 
             general_fname = mktemp()
             with open(general_fname, 'w') as f:
-                yaml.dump({'import': fnames}, f)
+                yaml.dump(
+                    {
+                        'import': fnames,
+                        'some': 1,  # this is to test that the value is actually overridden
+                        'other_value': 1,  # this is to test that the value is not overridden
+                    },
+                    f
+                )
 
             ctx = ApplicationContext.load(general_fname)
+            assert ctx.get('other_value') == 1
 
             for func, ans in answers.iteritems():
                 func_answer = ans['ans'][doc['meta'][ans['id']]]
@@ -103,9 +117,6 @@ class TestIOC(unittest.TestCase):
                 if func(ctx) != func_answer:
                     print '\n'.join(doc['contexts'])
                     print 'func:', func
-                    print 'actual answer:',  func()
-                    print 'expected answer:',  func_answer
+                    print 'actual answer:', func()
+                    print 'expected answer:', func_answer
                     assert False
-
-
-

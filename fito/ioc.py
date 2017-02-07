@@ -25,14 +25,15 @@ def recursive_load(strings, paths=None):
 
         for obj_name, obj in d.iteritems():
             if obj_name in res:
-                raise RuntimeError("the object name {} is defined more than once".format(obj_name))
+                raise RuntimeError(
+                    "The object name {} is defined more than once.".format(obj_name) +
+                    "\nOverrides can only be expressed via imports"
+                )
             res[obj_name] = obj
 
     if included_files:
         tmp_ctx = ApplicationContext.load(*included_files)
         for obj_name, obj in tmp_ctx.objects.iteritems():
-            if obj_name in res:
-                raise RuntimeError("the object name {} is defined more than once".format(obj_name))
             res[obj_name] = obj
 
     return res
