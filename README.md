@@ -1,7 +1,16 @@
 # About
 
-Fito is the data science ORM. It allows you to seamlesly serialize and store 
-peaces of code, executing it
+Fito is the data science ORM. 
+Fito is a Python module that helps you organize you code, and integrate
+different technologies while handling a consistent and clear 
+object model.
+
+Things like:
+ * Mapping between config files and behaviour, 
+ * Caching results of execution (in memory, or in any key value technology)
+ * Or attaching metadata to executions (like metrics, scores, plots, etc)
+  
+become trivial
 
 # Functionality
 
