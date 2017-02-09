@@ -1,37 +1,37 @@
 # About
+The data science ORM.
 
-Fito is the data science ORM. 
 Fito is a Python module that helps you organize you code, and integrate
 different technologies while handling a consistent and clear 
 object model.
 
 Things like:
  * Mapping between config files and behaviour, 
- * Caching results of execution (in memory, or in any key value technology)
+ * Caching results of execution (in memory, or in any key value store)
  * Or attaching metadata to executions (like metrics, scores, plots, etc)
   
 become trivial
 
 # Functionality
 
-Fito is a package that works around the concept of four concepts:
+Fito is a package that works around four concepts:
 First there are `Specs`. A `Spec` specifies an object.
 It provides the capability of specifiyng things, like models or data sources.
 Also an `Spec` can be combined with another `Spec` which allows them to specify
 things like experiments that combine both models and data sources.
 Specs are both **json-serializable** and **hasheable**.
   
-An `Operation` is an spec that computes something out of it. Can be though
+An `Operation` is an `Spec` that computes something out of it. Can be though
 as a [currified function](https://en.wikipedia.org/wiki/Currying#Illustration)
 
-That leads us to the `DataStore`, whose capability is to index an `Spec`.
-There are two implementations, one that uses the file system and 
-anotherone that uses [MongoDB](https://www.mongodb.com/).
+That leads us to the `DataStore`, whose capability is to index an `Spec` (or any subclass, of course).
+There are three implementations, one that uses python dictionaries, another uses the file system and 
+a third one backed on [MongoDB](https://www.mongodb.com/).
 
 One nice combination of having this abstraction, is that we can do automatic caching.
 That can be performed just by linking operations and data stores together 
 
-Besides that, there's a very helpful decorator, `as_operation` that 
+Besides that, fito provides very helpful decorator, `as_operation` that 
 turns any function into a subclass of `Operation`.
 
 # How does it look like?
