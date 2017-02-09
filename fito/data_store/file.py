@@ -106,7 +106,13 @@ class FileDataStore(BaseDataStore):
             if self.serializer is None: self.serializer = PickleSerializer()
 
             with open(conf_file, 'w') as f:
-                self.yaml.dump(f)
+                yaml.dump(
+                    {
+                        'serializer': self.serializer.to_dict(),
+                        'user_class_name': self.use_class_name
+                    },
+                    f
+                )
 
     @contextmanager
     def disabled_conf_checking(self):
