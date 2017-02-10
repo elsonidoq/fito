@@ -213,11 +213,12 @@ class Spec(object):
             if val is None: continue
             if not attr_type.check_valid_value(val):
                 raise InvalidSpecInstance(
-                    "Invalid value for parameter {attr} in {type_name}." +
-                    "Received {val}, expected {expected_types}\n" +
-                    "If you think {val} is an instance of any of the allowed classes ({expected_types}), then this " +
-                    "might be an issue related to the having reloaded a module containing de definition of {val}"
-                    .format(
+                    (
+                        "Invalid value for parameter {attr} in {type_name}." +
+                        "Received {val}, expected {expected_types}\n" +
+                        "If you think {val} is an instance of any of the allowed classes ({expected_types}), then this " +
+                        "might be an issue related to the having reloaded a module containing de definition of {val}"
+                    ).format(
                         attr=attr,
                         type_name=type(self).__name__,
                         val=val,
@@ -625,6 +626,7 @@ def obj_from_path(path):
             traceback.print_exc()
             raise RuntimeError("Couldn't import {}".format(path) + '\n' + e.args[0])
         except ImportError:
+            traceback.print_exc()
             raise RuntimeError("Couldn't import {}".format(path))
 
         obj = module

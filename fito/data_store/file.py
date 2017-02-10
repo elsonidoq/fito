@@ -4,8 +4,6 @@ import os
 import pickle
 import shutil
 import traceback
-from contextlib import contextmanager
-from pprint import pprint
 from time import time, sleep
 import warnings
 
@@ -62,7 +60,6 @@ class FileDataStore(BaseDataStore):
     split_keys = PrimitiveField(default=True)
     serializer = SpecField(default=None, base_type=Serializer)
     use_class_name = PrimitiveField(default=False, help='Whether the first level should be the class name')
-    _check_conf = True  # Just to avoid an infinite loop on __init__, see disabled_conf_checking
 
     def __init__(self, *args, **kwargs):
         super(FileDataStore, self).__init__(*args, **kwargs)
@@ -70,7 +67,7 @@ class FileDataStore(BaseDataStore):
         if not os.path.exists(self.path): os.makedirs(self.path)
 
         conf_file = os.path.join(self.path, 'conf.yaml')
-        if self._check_conf and os.path.exists(conf_file):
+        if os.path.exists(conf_file):
 
             with open(conf_file) as f:
                 conf = yaml.load(f)
@@ -109,18 +106,10 @@ class FileDataStore(BaseDataStore):
                 yaml.dump(
                     {
                         'serializer': self.serializer.to_dict(),
-                        'user_class_name': self.use_class_name
+                        'use_class_name': self.use_class_name
                     },
                     f
                 )
-
-    @contextmanager
-    def disabled_conf_checking(self):
-        try:
-            type(self)._check_conf = False
-            yield
-        finally:
-            type(self)._check_conf = True
 
     def clean(self, cls=None):
         for op in self.iterkeys():
