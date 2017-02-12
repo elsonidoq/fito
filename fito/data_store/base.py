@@ -2,10 +2,12 @@ import traceback
 import warnings
 from functools import wraps
 
+from fito import Operation
 from fito import Spec
 from fito import SpecField
 from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import as_operation
+from fito.specs.base import get_import_path
 from fito.specs.fields import NumericField, PrimitiveField
 
 
@@ -138,6 +140,19 @@ class AutosavedFunction(as_operation):
             to_wrap, func_to_execute, f_spec=f_spec, first_arg=first_arg
         )
 
+        autosaved_function = self
+
+        class AutosavedOperation(OperationClass):
+            def to_dict(self, include_all=False):
+                res = super(AutosavedOperation, self).to_dict(include_all=include_all)
+
+                if autosaved_function.method_type is not None:
+                    res['type'] = get_import_path(first_arg, func_to_execute.__name__, 'operation_class')
+                else:
+                    res['type'] = get_import_path(func_to_execute)
+
+                return res
+
         class FunctionWrapper(object):
             @property
             def wrapped_function(self):
@@ -149,6 +164,6 @@ class AutosavedFunction(as_operation):
 
             @wraps(to_wrap)
             def __call__(_, *args, **kwargs):
-                return OperationClass(*args, **kwargs).execute()
+                return AutosavedOperation(*args, **kwargs).execute()
 
         return FunctionWrapper()
