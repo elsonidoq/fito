@@ -439,6 +439,7 @@ class Spec(object):
         except ValueError, e:
             raise e
         except Exception, e:
+            traceback.print_exc()
             raise ValueError(e.args)
 
     def __hash__(self):
