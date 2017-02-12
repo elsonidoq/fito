@@ -226,7 +226,6 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     cls_attrs['__repr__'] = __repr__
     cls_attrs['get_this_args'] = get_this_args
     cls_attrs['to_dict'] = to_dict
-    cls_attrs['dinamically_created'] = True
 
     cls = Operation.type2spec_class(out_name)
     if cls is None:
