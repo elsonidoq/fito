@@ -4,8 +4,8 @@ import os
 import pickle
 import shutil
 import traceback
-from time import time, sleep
 import warnings
+from time import time, sleep
 
 import yaml
 from fito import PrimitiveField
@@ -136,6 +136,8 @@ class FileDataStore(BaseDataStore):
                 except Exception, e:  # there might be a key that is not a valid json
                     if len(e.args) > 0 and isinstance(e.args[0], basestring) and e.args[0].startswith(
                             'Unknown spec type'): raise e
+                    traceback.print_exc()
+                    warnings.warn('Unable to load spec key: {}'.format(key))
                     continue
 
                 yield spec
