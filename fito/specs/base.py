@@ -412,14 +412,15 @@ class Spec(object):
             raise ValueError("Invalid type for spec_type")
 
         if (
-                        isinstance(spec_type, dict) or
-                            ':' in spec_type or
-                        '.' in spec_type
+                isinstance(spec_type, dict) or
+                ':' in spec_type or
+                '.' in spec_type
         ):
             cls = obj_from_path(spec_type)
             assert issubclass(cls, Spec), "The provided path does not point to an Spec subclass"
             return cls
         else:
+            # Then assume it's the name of the class, this is somewhat legacy
             for cls in Spec._get_all_subclasses():
                 if cls.__name__ == spec_type: return cls
 
