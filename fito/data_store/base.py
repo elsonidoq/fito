@@ -127,12 +127,17 @@ class BaseDataStore(Spec):
         kwargs['cache_on'] = self
         return AutosavedFunction(*args, **kwargs)
 
-    def refactor(self, refactor_operation, out_data_store):
+    def refactor(self, refactor_operation, out_data_store, permissive=False):
         for id, doc in self.iterkeys(raw=True):
-            refactor_operation.bind(doc=doc).execute()
-            spec = Spec.dict2spec(doc)
-            out_data_store[spec] = self.get_by_id(id)
-
+            try:
+                refactor_operation.bind(doc=doc).execute()
+                spec = Spec.dict2spec(doc)
+                out_data_store[spec] = self.get_by_id(id)
+            except Exception, e:
+                if permissive:
+                    warnings.warn(' '.join(e.args))
+                else:
+                    raise e
 
 class AutosavedFunction(as_operation):
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None, first_arg=None):
