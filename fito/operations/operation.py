@@ -7,19 +7,17 @@ class Operation(Spec):
     out_data_store = SpecField(default=None, serialize=False)
     default_data_store = None
 
-    def execute(self, runner=None):
-        if self.out_data_store is not None:
-            out_data_store = self.out_data_store
-        else:
-            out_data_store = self.default_data_store
-
-        if out_data_store is not None:
-            return out_data_store.get_or_execute(self, runner)
-        else:
-            return (runner or OperationRunner()).execute(self)
+    def execute(self):
+        return OperationRunner().execute(self)
 
     def apply(self, runner):
         raise NotImplementedError()
+
+    def get_out_data_store(self):
+        if self.out_data_store is not None:
+            return self.out_data_store
+        else:
+            return type(self).default_data_store
 
 
 class MemoryObject(Operation):

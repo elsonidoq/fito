@@ -185,7 +185,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         for k, v in attrs.iteritems():
             value = getattr(self, k)
             if isinstance(v, BaseSpecField) and runner is not None and isinstance(value, Operation):
-                value = value.execute(runner)
+                value = runner.execute(value)
 
             this_args[k] = value
 
