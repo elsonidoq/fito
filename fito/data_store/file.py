@@ -226,12 +226,18 @@ class FileDataStore(BaseDataStore):
                 except OSError:
                     pass
 
-    def save(self, spec, series):
+    def save(self, spec, obj):
         subdir = self.get_dir_for_saving(spec)
-        with open(os.path.join(subdir, 'key'), 'w') as f:
-            f.write(spec.key)
+        key_fname = os.path.join(subdir, 'key')
+        try:
+            with open(key_fname, 'w') as f:
+                f.write(spec.key)
 
-        self.serializer.save(series, subdir)
+            self.serializer.save(obj, subdir)
+        except Exception, e:
+            # clean up the mess to mantain the invariatn
+            if os.path.exists(key_fname): os.unlink(key_fname)
+            if os.path.exists(subdir): shutil.rmtree(subdir)
 
     def __contains__(self, spec):
         try:
@@ -240,3 +246,9 @@ class FileDataStore(BaseDataStore):
         except KeyError:
             return False
 
+    def is_empty(self):
+        try:
+            self.iterkeys().next()
+            return False
+        except:
+            return True
