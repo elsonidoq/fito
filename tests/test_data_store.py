@@ -101,8 +101,8 @@ class TestDataStore(unittest.TestCase):
             OperationClass = as_operation(cache_on=ds)(orig_func)
             setattr(module, 'func', OperationClass)
 
-            for i in xrange(10):
-                op = OperationClass(i)
+            for j in xrange(10):
+                op = OperationClass(j)
                 assert op not in ds
                 value = op.execute()
                 assert op in ds
