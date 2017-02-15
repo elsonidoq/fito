@@ -59,11 +59,11 @@ class TestOperation(unittest.TestCase):
 
     def test_base(self):
         # test whether everything works without caching
-        runner = OperationRunner(cache_size=0)
+        runner = OperationRunner(execute_cache_size=0)
         self.run_and_assert(runner, 1)
 
     def test_fifo(self):
-        runner = OperationRunner(cache_size=len(self.operations))
+        runner = OperationRunner(execute_cache_size=len(self.operations))
 
         # everything should be run once
         self.run_and_assert(runner, 1)

@@ -6,15 +6,15 @@ from fito.specs.fields import NumericField
 
 
 class OperationRunner(Spec):
-    cache_size = NumericField(default=0)
+    execute_cache_size = NumericField(default=0)
     verbose = PrimitiveField(default=False)
 
     def __init__(self, *args, **kwargs):
         super(OperationRunner, self).__init__(*args, **kwargs)
-        if self.cache_size == 0:
+        if self.execute_cache_size == 0:
             self.cache = None
         else:
-            self.cache = FifoCache(self.cache_size, self.verbose)
+            self.cache = FifoCache(self.execute_cache_size, self.verbose)
 
     # TODO: The FifoCache can be casted into a FifoDataStore, and make this function an @autosave
     def execute(self, operation):
