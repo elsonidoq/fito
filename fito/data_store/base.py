@@ -11,7 +11,7 @@ from fito.specs.base import get_import_path
 from fito.specs.fields import NumericField, PrimitiveField
 
 
-class BaseDataStore(Spec):
+class BaseDataStore(OperationRunner):
     """
     Base class for all data stores, to implement a backend you need to implement
     _get, save and iteritems methods
@@ -21,7 +21,6 @@ class BaseDataStore(Spec):
     """
 
     get_cache_size = NumericField(default=0)
-    operation_runner = SpecField(default=OperationRunner())
     verbose = PrimitiveField(default=False, serialize=False)
 
     def __init__(self, *args, **kwargs):
@@ -36,8 +35,6 @@ class BaseDataStore(Spec):
         else:
             self.get_cache = None
 
-        self.operation_runner = self.operation_runner or OperationRunner()
-
     def get(self, spec):
         """
         Gets an operation from this data store.
@@ -46,11 +43,12 @@ class BaseDataStore(Spec):
         if self.get_cache is None:
             return self._get(spec)
         else:
-            res = self.get_cache.get(spec)
-            if res is FifoCache.no_result:
+            try:
+                return self.get_cache[spec]
+            except KeyError:
                 res = self._get(spec)
                 self.get_cache.set(spec, res)
-            return res
+                return res
 
     def _get(self, spec):
         """
@@ -98,30 +96,6 @@ class BaseDataStore(Spec):
 
     def __contains__(self, spec):
         return self.get_or_none(spec) is not None
-
-    def get_or_execute(self, operation, operation_runner=None):
-        """
-        Base function for all autocaching
-
-        :param operation:
-        :return:
-        """
-        if operation not in self:
-            res = (operation_runner or self.operation_runner).execute(operation)
-            self[operation] = res
-        else:
-            try:
-                res = self.get(operation)
-                if self.verbose:
-                    print "Getting cached version or {}".format(operation)
-            except Exception, e:
-                warnings.warn("There was an error loading from cache, executing again...")
-                traceback.print_exc()
-
-                res = (operation_runner or self.operation_runner).execute(operation)
-                self[operation] = res
-
-        return res
 
     def autosave(self, *args, **kwargs):
         kwargs['cache_on'] = self
