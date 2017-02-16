@@ -1,10 +1,7 @@
-import traceback
 import warnings
 from functools import wraps
 
-from fito import Operation
 from fito import Spec
-from fito import SpecField
 from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import as_operation
 from fito.specs.base import get_import_path
@@ -113,22 +110,23 @@ class BaseDataStore(OperationRunner):
                 else:
                     raise e
 
+
 class AutosavedFunction(as_operation):
+    cache_on = PrimitiveField()  # make cache_on a required parameter
+
     def create_decorated(self, to_wrap, func_to_execute, f_spec=None, first_arg=None):
         OperationClass = super(AutosavedFunction, self).create_decorated(
             to_wrap, func_to_execute, f_spec=f_spec, first_arg=first_arg
         )
 
-        autosaved_function = self
-
         class AutosavedOperation(OperationClass):
             def to_dict(self, include_all=False):
                 res = super(AutosavedOperation, self).to_dict(include_all=include_all)
 
-                if autosaved_function.method_type is not None:
+                if first_arg is not None:
                     res['type'] = get_import_path(first_arg, func_to_execute.__name__, 'operation_class')
                 else:
-                    res['type'] = get_import_path(func_to_execute)
+                    res['type'] = get_import_path(func_to_execute, 'operation_class')
 
                 return res
 
@@ -139,10 +137,10 @@ class AutosavedFunction(as_operation):
 
             @property
             def operation_class(self):
-                return OperationClass
+                return AutosavedOperation
 
             @wraps(to_wrap)
             def __call__(_, *args, **kwargs):
-                return AutosavedOperation(*args, **kwargs).execute()
+                return self.cache_on.execute(AutosavedOperation(*args, **kwargs))
 
         return FunctionWrapper()

@@ -25,16 +25,18 @@ def get_test_data_stores():
     base_mongo_collection.drop()
 
     return [
+        dict_ds.DictDataStore(),
+
         mongo.MongoHashMap(base_mongo_collection),
         mongo.MongoHashMap(base_mongo_collection.with_get_cache, get_cache_size=10),
+        mongo.MongoHashMap(base_mongo_collection.with_exec_cache, execute_cache_size=5),
         mongo.MongoHashMap(base_mongo_collection.with_incremental_id, add_incremental_id=True),
 
         file.FileDataStore(file_data_store_preffix),
         file.FileDataStore(file_data_store_preffix + '_with_get_cache', get_cache_size=10),
+        file.FileDataStore(file_data_store_preffix + '_with_exec_cache', execute_cache_size=5),
         file.FileDataStore(file_data_store_preffix + '_dont_split_keys', split_keys=False),
         file.FileDataStore(file_data_store_preffix + '_use_class_name', use_class_name=True),
-
-        dict_ds.DictDataStore(),
     ]
 
 
@@ -63,6 +65,16 @@ class TestDataStore(unittest.TestCase):
             # Populate the data stores
             for j, spec in enumerate(self.indexed_specs):
                 ds[spec] = j
+
+        # it's defined inside an instance method hehehe
+        if type(func).__name__ == 'FunctionWrapper':
+            # func might be changed during tests, we need it to be a function
+            module = inspect.getmodule(TestDataStore)
+            setattr(
+                module,
+                'func',
+                func.operation_class.func
+            )
 
     def tearDown(self):
         clean_data_stores(self.data_stores)
@@ -104,9 +116,29 @@ class TestDataStore(unittest.TestCase):
             for j in xrange(10):
                 op = OperationClass(j)
                 assert op not in ds
-                value = op.execute()
+                value = ds.execute(op)
+                assert op in ds
+                assert op.apply(ds) == value
+
+    def test_autosave(self):
+        orig_func = func
+
+        module = inspect.getmodule(TestDataStore)
+        for i, ds in enumerate(self.data_stores):
+            autosaved_func = ds.autosave()(orig_func)
+            setattr(module, 'func', autosaved_func)
+
+            for j in xrange(10):
+                op = autosaved_func.operation_class(j)
+                assert op not in ds
+                value = autosaved_func(j)
                 assert op in ds
                 assert op.execute() == value
+
+            if ds.execute_cache is not None:
+                assert len(ds.execute_cache.queue) == 5  # all instances with execute cache have a size == 5
+                for j in xrange(5, 10):
+                    assert autosaved_func.operation_class(j) in ds.execute_cache.queue
 
 
 def func(i):
