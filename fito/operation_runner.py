@@ -12,9 +12,9 @@ class OperationRunner(Spec):
     def __init__(self, *args, **kwargs):
         super(OperationRunner, self).__init__(*args, **kwargs)
         if self.execute_cache_size == 0:
-            self.cache = None
+            self.execute_cache = None
         else:
-            self.cache = FifoCache(self.execute_cache_size, self.verbose)
+            self.execute_cache = FifoCache(self.execute_cache_size, self.verbose)
 
     # TODO: The FifoCache can be casted into a FifoDataStore, and make this function an @autosave
     def execute(self, operation):
@@ -32,8 +32,8 @@ class OperationRunner(Spec):
             res = func()
             if res is not None: break
 
-        if self.cache is not None:
-            self.cache.set(operation, res)
+        if self.execute_cache is not None:
+            self.execute_cache.set(operation, res)
 
         out_data_store = operation.get_out_data_store()
         if out_data_store is not None:
@@ -42,8 +42,8 @@ class OperationRunner(Spec):
         return res
 
     def _get_memory_cache(self, operation):
-        if self.cache is not None:
-            return self.cache.get(operation)
+        if self.execute_cache is not None:
+            return self.execute_cache.get(operation)
 
     def _get_data_store_cache(self, operation):
         out_data_store = operation.get_out_data_store()
