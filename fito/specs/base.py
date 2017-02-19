@@ -69,6 +69,7 @@ class InvalidSpecInstance(Exception):
 
 class MainModuleWarning(UserWarning): pass
 
+
 warnings.filterwarnings('once', '.*', MainModuleWarning, __name__)
 
 
@@ -147,6 +148,20 @@ class Spec(object):
     def __init__(self, *args, **kwargs):
         fields = dict(self.get_fields())
         self.initialize(fields, *args, **kwargs)
+
+    @classmethod
+    def auto_instance(cls, **kwargs):
+        fields = dict(cls.get_fields())
+        instance_kwargs = {k: v for k, v in kwargs.iteritems() if k in fields}
+
+        for field, field_spec in fields.iteritems():
+            if field not in instance_kwargs \
+                    and isinstance(field_spec, BaseSpecField) \
+                    and not field_spec.has_default_value():
+
+                instance_kwargs[field] = field_spec.base_type.auto_instance(**kwargs)
+
+        return cls(**instance_kwargs)
 
     def initialize(self, fields, *args, **kwargs):
         pos2name = {}
