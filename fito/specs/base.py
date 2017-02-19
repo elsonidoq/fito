@@ -171,10 +171,8 @@ class Spec(object):
         if len(pos2name) == 0:
             max_nargs = 0
         else:
-            max_nargs = (
-                max(pos2name) + 1  # +
-                # len([attr_type for attr_type in fields.itervalues() if attr_type.pos is None])
-            )
+            max_nargs = (max(pos2name) + 1)
+
         if len(args) > max_nargs and args_field is None:
             raise InvalidSpecInstance(
                 (
@@ -187,14 +185,20 @@ class Spec(object):
         # These guys are the ones that are going to be passed to the instance
         args_param_value = []
         kwargs_param_value = {}
+
+        # Map args to kwargs and stash every extra arg into args_field, if there's one
         for i, arg in enumerate(args):
             if args_field is not None and i >= max_nargs:
                 args_param_value.append(arg)
             else:
                 kwargs[pos2name[i]] = arg
+
+        # Set defaults for missing kwargs, that do have default
         for attr, attr_type in fields.iteritems():
             if attr_type.has_default_value() and attr not in kwargs:
                 kwargs[attr] = attr_type.default
+
+        # If there's an actual kwargs field, put all extra keyword arguments there
         if kwargs_field is not None:
             kwargs_param_value = {
                 attr: attr_type
@@ -207,12 +211,21 @@ class Spec(object):
                 for attr, attr_type in kwargs.iteritems()
                 if attr in fields and attr != kwargs_field and attr != args_field
                 }
+
+        # Check that len(kwargs) == len(fields)
         if len(kwargs) > len(fields):
             raise InvalidSpecInstance("Class %s does not take the following arguments: %s" % (
                 type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
+
         elif len(kwargs) < len(fields) - (args_field is not None) - (kwargs_field is not None):
             raise InvalidSpecInstance("Missing arguments for class %s: %s" % (
                 type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
+
+        for attr in kwargs:
+            if attr not in fields:
+                raise InvalidSpecInstance("Received extra parameter {}".format(attr))
+
+        # Make sure that everything receives what it expects
         for attr, attr_type in fields.iteritems():
             val = kwargs.get(attr)
             if val is None: continue
@@ -230,13 +243,14 @@ class Spec(object):
                         expected_types=attr_type.allowed_types
                     )
                 )
-        for attr in kwargs:
-            if attr not in fields:
-                raise InvalidSpecInstance("Received extra parameter {}".format(attr))
+
+        # Perform set the values to self
         if args_field is not None:
             setattr(self, args_field, tuple(args_param_value))
+
         if kwargs_field is not None:
             setattr(self, kwargs_field, kwargs_param_value)
+
         for attr, attr_type in kwargs.iteritems():
             setattr(self, attr, attr_type)
 
