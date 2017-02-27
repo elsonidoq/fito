@@ -575,6 +575,15 @@ class Spec(object):
 
         return '\n'.join(res) + '\n'
 
+    def get_subspecs(self, include_self=True):
+        res = []
+        if include_self: res.append(self)
+
+        for _, spec in self.get_spec_fields().iteritems():
+            if spec is not None:
+                res.extend(spec.get_subspecs(include_self=True))
+
+        return res
 
 def get_import_path(obj, *attrs):
     """
