@@ -7,8 +7,8 @@ class Operation(Spec):
     out_data_store = SpecField(default=None, serialize=False)
     default_data_store = None
 
-    def execute(self):
-        return OperationRunner().execute(self)
+    def execute(self, force=False):
+        return OperationRunner().execute(self, force=force)
 
     def apply(self, runner):
         raise NotImplementedError()
