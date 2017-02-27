@@ -139,11 +139,6 @@ class Spec(object):
     """
     __metaclass__ = SpecMeta
 
-    # There are a lot of subclasses of Spec that are dinamically created. Sometimes it's usefull to be able to know
-    # whether that's the case or not
-    # TODO: make it read only
-    dinamically_created = False
-
     def __init__(self, *args, **kwargs):
         fields = dict(self.get_fields())
         self.initialize(fields, *args, **kwargs)
