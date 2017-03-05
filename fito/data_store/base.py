@@ -101,8 +101,8 @@ class BaseDataStore(OperationRunner):
     def refactor(self, refactor_operation, out_data_store, permissive=False):
         for id, doc in self.iterkeys(raw=True):
             try:
-                refactor_operation.bind(doc=doc).execute()
-                spec = Spec.dict2spec(doc)
+                refactored_doc = refactor_operation.bind(doc=doc).execute()
+                spec = Spec.dict2spec(refactored_doc)
                 out_data_store[spec] = self.get_by_id(id)
             except Exception, e:
                 if permissive:
