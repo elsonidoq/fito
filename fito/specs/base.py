@@ -308,6 +308,13 @@ class Spec(object):
         return res
 
     @classmethod
+    def get_fields(cls):
+        for k in dir(cls):
+            v = getattr(cls, k)
+            if isinstance(v, Field) and not isinstance(v, UnboundField):
+                yield k, v
+
+    @classmethod
     def get_field_spec(cls, field_name):
         res = getattr(cls, field_name)
         assert isinstance(res, Field)
@@ -326,6 +333,11 @@ class Spec(object):
             if isinstance(attr_type, PrimitiveField):
                 res[attr] = getattr(self, attr)
         return res
+
+    def get_signature(self):
+        # Lazy import
+        from signature import SpecSignature
+        return SpecSignature(type(self), dict(self.get_fields()))
 
     @memoized_property
     def key(self):
@@ -419,13 +431,6 @@ class Spec(object):
     def from_yaml(cls):
         yaml.loads = yaml.load
         return Spec.Importer(cls, yaml)
-
-    @classmethod
-    def get_fields(cls):
-        for k in dir(cls):
-            v = getattr(cls, k)
-            if isinstance(v, Field) and not isinstance(v, UnboundField):
-                yield k, v
 
     @classmethod
     def get_unbinded_fields(cls):
@@ -626,6 +631,7 @@ class Spec(object):
 
         return res
 
+
 def get_import_path(obj, *attrs):
     """
     Builds a string representing an object.
@@ -756,3 +762,5 @@ def parse_string_path(path):
 
 def load_object(id):
     return ctypes.cast(id, ctypes.py_object).value
+
+
