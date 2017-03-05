@@ -69,6 +69,15 @@ class ApplicationContext(object):
         objects = recursive_load(strings, paths)
         return cls(objects)
 
+    def alias(self, key, object_name):
+        if object_name not in self.objects:
+            raise ValueError('Added an alias to a not existing object ("{}")'.format(object_name))
+
+        if key in self.objects:
+            raise ValueError('Invalid alias name "{}" already exists'.format(key))
+
+        self.objects[key] = '${}'.format(object_name)
+
     cache = DictDataStore()
 
     @cache.autosave(method_type='instance')
