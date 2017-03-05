@@ -1,3 +1,5 @@
+from collections import defaultdict
+import inspect
 import unittest
 from random import Random
 
@@ -79,6 +81,27 @@ class TestOperation(unittest.TestCase):
         self.run_and_assert(runner, 2)
 
     def run_and_assert(self, runner, cnt):
-        for op in self.operations:
+        for i, op in enumerate(self.operations):
             runner.execute(op)
             assert op.times_run == cnt
+
+    def test_force(self):
+        runner = OperationRunner(
+            execute_cache_size=len(self.operations),
+        )
+
+        # everything should be run once
+        cardinality = defaultdict(int)
+        for op in self.operations:
+            for sop in op.get_subspecs(include_self=True):
+                cardinality[sop] += 1
+
+        for i in xrange(5):
+            # run everything
+            for op in self.operations:
+                runner.execute(op, force=True)
+
+            # check that everything was run the number of times it should
+            for op in self.operations:
+                assert op.times_run == cardinality[op] * (i + 1)
+
