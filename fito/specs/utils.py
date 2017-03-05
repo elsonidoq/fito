@@ -61,12 +61,23 @@ def recursive_map(iterable, callable, recursion_condition=None):
 
     for k, v in general_iterator(iterable):
         if recursion_condition(v):
-            res = general_append(res, k, recursive_map(callable(v), callable, recursion_condition))
+            res = general_append(
+                res,
+                k,
+                recursive_map(
+                    callable(v),
+                    callable,
+                    recursion_condition
+                )
+            )
         else:
 
-            if callable_nargs == 1: v = callable(v)
-            else: v = callable(k, v)
+            if callable_nargs == 1:
+                v = callable(v)
+            else:
+                v = callable(k, v)
 
             res = general_append(res, k, v)
+
     return res
 
