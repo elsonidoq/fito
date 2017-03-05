@@ -12,7 +12,7 @@ class Field(object):
     Base class for field definition on an :py:class:`Spec`
     """
 
-    def __init__(self, pos=None, default=_no_default, serialize=True, *args, **kwargs):
+    def __init__(self, pos=None, default=_no_default, serialize=True, is_type=False, *args, **kwargs):
         """
         :param pos: The position on the argument list
         :param default: The default value
@@ -21,6 +21,7 @@ class Field(object):
         :param args: Helps having them to create on the fly sublcasses of field. See :py:func:Spec:
         :param kwargs:
         """
+        self.is_type = is_type
         self.pos = pos
         self.default = default
         self.serialize = serialize
@@ -30,7 +31,8 @@ class Field(object):
         raise NotImplementedError()
 
     def check_valid_value(self, value):
-        return any([isinstance(value, t) for t in self.allowed_types])
+        check_function = issubclass if self.is_type else isinstance
+        return any([check_function(value, t) for t in self.allowed_types])
 
     def __eq__(self, other):
         return self is other
@@ -116,8 +118,8 @@ class BaseSpecField(Field):
     Specifies a Field whose value will be an Spec
     """
 
-    def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, *args, **kwargs):
-        super(BaseSpecField, self).__init__(pos=pos, default=default, serialize=serialize, *args, **kwargs)
+    def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, is_type=False, *args, **kwargs):
+        super(BaseSpecField, self).__init__(pos=pos, default=default, serialize=serialize, is_type=is_type, *args, **kwargs)
         self.base_type = base_type or base.Spec
         self.serialize = serialize
 
@@ -126,7 +128,7 @@ class BaseSpecField(Field):
         return [self.base_type]
 
 
-def SpecField(pos=None, default=_no_default, base_type=None, serialize=True, spec_field_subclass=None):
+def SpecField(pos=None, default=_no_default, base_type=None, serialize=True, is_type=False, spec_field_subclass=None):
     """
     Builds a SpecField
 
@@ -153,7 +155,7 @@ def SpecField(pos=None, default=_no_default, base_type=None, serialize=True, spe
     else:
         return_type = spec_field_subclass
 
-    return return_type(pos=pos, default=default, base_type=base_type, serialize=serialize)
+    return return_type(pos=pos, default=default, base_type=base_type, serialize=serialize, is_type=is_type)
 
 
 class SpecCollection(Field):
@@ -168,8 +170,9 @@ class SpecCollection(Field):
     def check_valid_value(self, value):
         if not is_iterable(value): return False
 
+        check_function = issubclass if self.is_type else isinstance
         for k, v in general_iterator(value):
-            if not isinstance(v, base.Spec): return False
+            if not check_function(v, base.Spec): return False
 
         return True
 
@@ -200,10 +203,16 @@ class BaseUnboundSpec(BaseSpecField, UnboundField):
     pass
 
 
-def UnboundSpecField(pos=None, default=_no_default, base_type=None, spec_field_subclass=None):
+def UnboundSpecField(pos=None, default=_no_default, base_type=None, spec_field_subclass=None, is_type=False):
     spec_field_subclass = spec_field_subclass or BaseUnboundSpec
     assert issubclass(spec_field_subclass, BaseUnboundSpec)
-    return SpecField(pos=pos, default=default, base_type=base_type, spec_field_subclass=spec_field_subclass)
+    return SpecField(
+        pos=pos,
+        default=default,
+        base_type=base_type,
+        is_type=is_type,
+        spec_field_subclass=spec_field_subclass
+    )
 
 
 class UnboundPrimitiveField(PrimitiveField, UnboundField):

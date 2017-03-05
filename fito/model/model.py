@@ -15,14 +15,14 @@ except ImportError:
 
 
 class ModelParameter(PrimitiveField):
-    def __init__(self, pos=None, default=_no_default, serialize=True, grid=None, *args, **kwargs):
-        super(ModelParameter, self).__init__(pos, default, serialize, *args, **kwargs)
+    def __init__(self, pos=None, default=_no_default, serialize=True, grid=None, is_type=False, *args, **kwargs):
+        super(ModelParameter, self).__init__(pos, default, serialize, is_type, *args, **kwargs)
         self.grid = grid or ([] if default is _no_default else [default])
 
 
 class BaseModelField(BaseSpecField):
-    def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, grid=None, *args, **kwargs):
-        super(BaseModelField, self).__init__(pos, default, base_type, serialize, *args, **kwargs)
+    def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, grid=None, is_type=False, *args, **kwargs):
+        super(BaseModelField, self).__init__(pos, default, base_type, serialize, is_type, *args, **kwargs)
         self.grid = grid or ([] if default is _no_default else [default])
 
 

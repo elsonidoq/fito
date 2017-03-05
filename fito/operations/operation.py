@@ -38,7 +38,7 @@ class MemoryObject(Operation):
         return res
 
 
-def OperationField(pos=None, default=_no_default, base_type=None):
-    return SpecField(pos=pos, default=default, base_type=base_type or Operation)
+def OperationField(pos=None, default=_no_default, base_type=None, is_type=False):
+    return SpecField(pos=pos, default=default, base_type=base_type or Operation, is_type=is_type)
 
 

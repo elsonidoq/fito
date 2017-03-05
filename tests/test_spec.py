@@ -234,6 +234,9 @@ class TestSpec(unittest.TestCase):
                 finally:
                     shutil.rmtree(tmp_dir)
 
+    def test_is_type(self):
+        assert False
+
 
 def splitted_serialize(spec, dir, use_relative_paths):
     fnames = {}
