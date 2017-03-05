@@ -85,23 +85,26 @@ class ApplicationContext(object):
 
         if is_iterable(res):
             res = self.resolve(res)
+        else:
+            res = self._try_load(res)
 
         return res
 
     def resolve(self, obj):
         res = general_new(obj)
 
-        def try_load(v):
-            if isinstance(v, basestring) and v.startswith('$'):
-                return self._get_raw(v[1:])
-            else:
-                return v
-
         for k, v in general_iterator(obj):
             if is_iterable(v):
-                v = recursive_map(v, try_load)
+                v = recursive_map(v, self._try_load)
             else:
-                v = try_load(v)
+                v = self._try_load(v)
 
             general_append(res, k, v)
         return res
+
+    def _try_load(self, v):
+        if isinstance(v, basestring) and v.startswith('$'):
+            return self._get_raw(v[1:])
+        else:
+            return v
+
