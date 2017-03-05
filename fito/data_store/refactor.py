@@ -1,38 +1,24 @@
-from fito.operations.operation import Operation
-from fito.specs.base import get_import_path
+from fito.operations.operation import Operation, OperationField
+from fito.specs.base import get_import_path, Spec
 from fito.specs.fields import UnboundPrimitiveField, PrimitiveField, SpecField
+from fito.specs.utils import recursive_map
 
 
 class StorageRefactor(Operation):
     doc = UnboundPrimitiveField(0, serialize=False)
     storage_refactor = SpecField(default=None)
 
-    def add_field(self, field_name, default_value=None):
-        return AddField(field_name, default_value, storage_refactor=self)
+    def add_field(self, field_type, field_name, default_value=None):
+        return AddField(field_type, field_name, default_value, storage_refactor=self)
 
-    def rename_field(self, source, target):
-        return RenameField(source, target, storage_refactor=self)
+    def rename_field(self, field_type, source, target):
+        return RenameField(field_type, source, target, storage_refactor=self)
 
-    def remove_field(self, field_name):
-        return RemoveField(field_name, storage_refactor=self)
+    def remove_field(self, field_type, field_name):
+        return RemoveField(field_type, field_name, storage_refactor=self)
 
-    def change_type(self, operation_class):
-        return ChangeType(operation_class, storage_refactor=self)
-
-    def filter_by_type(self, operation_class):
-        """
-        This will filter all transformations made by self.
-        That implies that filter_by_type must be called last on the transformation list
-
-        Example:
-        >>> (
-        ...    StorageRefactor()
-        ...    .add_field('some', 1)
-        ...    .remove_field('other')
-        ...    .filter_by_type(Operation)
-        ... )
-        """
-        return FilterByType(target_type=get_import_path(operation_class), storage_refactor=self)
+    def change_type(self, field_type, new_type):
+        return ChangeType(field_type, new_type, storage_refactor=self)
 
     def _bind(self, meth_name, *args, **kwargs):
         res = getattr(super(StorageRefactor, self), meth_name)(*args, **kwargs)
@@ -49,49 +35,76 @@ class StorageRefactor(Operation):
     def apply(self, runner):
         assert isinstance(self.doc, dict)
 
+        # if 'operation_1' in self.doc['type']: import ipdb;ipdb.set_trace()
+
+        doc = self.chain_transformations(self.doc)
+        return recursive_map(doc, self.chain_transformations)
+
+    def transformation(self, doc):
+        return doc
+
+    def chain_transformations(self, doc):
+        doc = self.transformation(doc)
         if self.storage_refactor is not None:
-            runner.execute(self.storage_refactor)
-
-        self._apply()
-
-    def _apply(self):
-        pass
+            doc = self.storage_refactor.chain_transformations(doc)
+        return doc
 
 
-class FilterByType(StorageRefactor):
-    target_type = PrimitiveField(0)
+class FilteredStorageRefactor(StorageRefactor):
+    field_type = PrimitiveField(0)
 
-    def apply(self, runner):
-        if self.doc['type'] == self.target_type:
-            super(FilterByType, self).apply(runner)
+    def matches(self, doc):
+        return isinstance(doc, dict) and doc['type'] == self.get_field_type_string()
 
-
-class AddField(StorageRefactor):
-    field_name = PrimitiveField(0)
-    default_value = PrimitiveField(1)
-
-    def _apply(self):
-        self.doc[self.field_name] = self.default_value
+    def get_field_type_string(self):
+        if isinstance(self.field_type, basestring):
+            return self.field_type
+        else:
+            return get_import_path(self.field_type)
 
 
-class RenameField(StorageRefactor):
-    source = PrimitiveField(0)
-    target = PrimitiveField(1)
+class AddField(FilteredStorageRefactor):
+    field_name = PrimitiveField(1)
+    default_value = PrimitiveField(2)
 
-    def _apply(self):
-        self.doc[self.target] = self.doc.pop(self.source)
+    def transformation(self, doc):
+        if self.matches(doc):
+            doc = doc.copy()
+            doc[self.field_name] = self.default_value
 
-
-class RemoveField(StorageRefactor):
-    field_name = PrimitiveField(0)
-
-    def _apply(self):
-        self.doc.pop(self.field_name, None)
+        return doc
 
 
-class ChangeType(StorageRefactor):
-    operation_class = PrimitiveField(0)
+class RenameField(FilteredStorageRefactor):
+    source = PrimitiveField(1)
+    target = PrimitiveField(2)
 
-    def _apply(self):
-        assert issubclass(self.operation_class, Operation)
-        self.doc['type'] = get_import_path(self.operation_class)
+    def transformation(self, doc):
+        if self.matches(doc):
+            doc = doc.copy()
+            doc[self.target] = doc.pop(self.source)
+        return doc
+
+
+class RemoveField(FilteredStorageRefactor):
+    field_name = PrimitiveField(1)
+
+    def transformation(self, doc):
+        if self.matches(doc):
+            doc = doc.copy()
+            doc.pop(self.field_name, None)
+        return doc
+
+
+class ChangeType(FilteredStorageRefactor):
+    new_type = PrimitiveField(1)
+
+    def __init__(self, *args, **kwargs):
+        super(ChangeType, self).__init__(*args, **kwargs)
+        assert issubclass(self.new_type, Spec)
+
+    def transformation(self, doc):
+        if self.matches(doc):
+            doc = doc.copy()
+            doc['type'] = get_import_path(self.new_type)
+        return doc
