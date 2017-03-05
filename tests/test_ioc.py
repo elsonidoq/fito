@@ -72,22 +72,7 @@ class TestIOC(unittest.TestCase):
                         }
                     )
 
-    def test_ioc(self):
-        def some_field(ctx):
-            return ctx.get('some').field1
-
-        def thing_len(ctx):
-            return len(ctx.get('thing').spec_list)
-
-        def nice_type(ctx):
-            return type(ctx.get('nice').spec)
-
-        answers = {
-            some_field: {'id': 0, 'ans': [1, 2]},
-            thing_len: {'id': 1, 'ans': [1, 2]},
-            nice_type: {'id': 2, 'ans': [SpecA, SpecC]}
-        }
-
+    def iter_ctxs(self):
         for doc in self.combinations:
 
             fnames = []
@@ -108,7 +93,33 @@ class TestIOC(unittest.TestCase):
                     f
                 )
 
-            ctx = ApplicationContext.load(general_fname)
+            yield doc, ApplicationContext.load(general_fname)
+
+    def test_alias(self):
+        for doc, ctx in self.iter_ctxs():
+            with self.assertRaises(KeyError):
+                ctx.get('a')
+                
+            ctx.alias('a', 'nice')
+            assert ctx.get('nice') == ctx.get('a')
+
+    def test_ioc(self):
+        def some_field(ctx):
+            return ctx.get('some').field1
+
+        def thing_len(ctx):
+            return len(ctx.get('thing').spec_list)
+
+        def nice_type(ctx):
+            return type(ctx.get('nice').spec)
+
+        answers = {
+            some_field: {'id': 0, 'ans': [1, 2]},
+            thing_len: {'id': 1, 'ans': [1, 2]},
+            nice_type: {'id': 2, 'ans': [SpecA, SpecC]}
+        }
+
+        for doc, ctx in self.iter_ctxs():
             assert ctx.get('other_value') == 1
 
             for func, ans in answers.iteritems():
@@ -120,3 +131,5 @@ class TestIOC(unittest.TestCase):
                     print 'actual answer:', func()
                     print 'expected answer:', func_answer
                     assert False
+
+
