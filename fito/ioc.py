@@ -3,7 +3,7 @@ import os
 import yaml
 
 from fito import Spec, DictDataStore
-from fito.specs.utils import general_iterator, general_new, is_iterable, recursive_map
+from fito.specs.utils import general_iterator, general_new, is_iterable, recursive_map, general_append
 
 
 def recursive_load(strings, paths=None):
@@ -93,5 +93,5 @@ class ApplicationContext(object):
             else:
                 v = try_load(v)
 
-            res[k] = v
+            general_append(res, k, v)
         return res
