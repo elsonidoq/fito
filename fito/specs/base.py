@@ -102,6 +102,10 @@ class SpecMeta(type):
         return res
 
 
+class MissingUnwiredParamError(Exception):
+    pass
+
+
 @total_ordering
 class Spec(object):
     """
@@ -142,6 +146,42 @@ class Spec(object):
     def __init__(self, *args, **kwargs):
         fields = dict(self.get_fields())
         self.initialize(fields, *args, **kwargs)
+
+    @classmethod
+    def auto_instance(cls, locals, globals):
+        context = locals.copy()
+        context.update(globals)
+
+        fields = dict(cls.get_fields())
+
+        instance_kwargs = {}
+        for field, field_spec in fields.iteritems():
+            if isinstance(field_spec, BaseSpecField):
+                if field in context and isinstance(context[field], Spec):
+                    # If there's a spec with that name in the context, use it
+                    instance_kwargs[field] = context[field]
+                else:
+                    # Otherwise call auto_instance
+                    try:
+                        instance_kwargs[field] = field_spec.base_type.auto_instance(locals.get(field, {}), globals)
+
+                    except MissingUnwiredParamError, e:
+                        param = e.args[0].split()[-1]
+                        raise MissingUnwiredParamError("Missing unwired param for {}.{}".format(field, param))
+
+            elif field in context:
+                # It's a PrimitiveField
+                # If it was a primitive field, assume that's the desired value
+                instance_kwargs[field] = context[field]
+
+            elif field_spec.has_default_value():
+                # If it has default value, then use it
+                instance_kwargs[field] = field_spec.default
+            else:
+                # Otherwise I don'w know how to instance it
+                raise MissingUnwiredParamError("Missing unwired param for {}".format(field))
+
+        return cls(**instance_kwargs)
 
     def initialize(self, fields, *args, **kwargs):
         pos2name = {}

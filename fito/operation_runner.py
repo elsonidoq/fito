@@ -37,7 +37,6 @@ class OperationRunner(Spec):
 
         :param force: Whether to ignore the current cached value of this operation
         """
-
         force = force or self.force
         if not force:
             # if not force, then check the caches out
