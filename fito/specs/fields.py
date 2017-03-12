@@ -118,12 +118,12 @@ class BaseSpecField(Field):
 
     def __init__(self, pos=None, default=_no_default, base_type=None, serialize=True, *args, **kwargs):
         super(BaseSpecField, self).__init__(pos=pos, default=default, serialize=serialize, *args, **kwargs)
-        self.base_type = base_type
+        self.base_type = base_type or base.Spec
         self.serialize = serialize
 
     @property
     def allowed_types(self):
-        return [base.Spec if self.base_type is None else self.base_type]
+        return [self.base_type]
 
 
 def SpecField(pos=None, default=_no_default, base_type=None, serialize=True, spec_field_subclass=None):
@@ -146,7 +146,7 @@ def SpecField(pos=None, default=_no_default, base_type=None, serialize=True, spe
     if base_type is not None:
         assert issubclass(base_type, base.Spec)
         return_type = type(
-            'SpecFieldFor_{}'.format(base_type.__name__),
+            'SpecFieldFor{}'.format(base_type.__name__),
             (spec_field_subclass, base_type),
             {}
         )
