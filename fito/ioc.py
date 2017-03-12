@@ -3,19 +3,27 @@ import os
 import yaml
 
 from fito import Spec, DictDataStore
-from fito.specs.utils import general_iterator, general_new, is_iterable, recursive_map
+from fito.specs.utils import general_iterator, general_new, is_iterable, recursive_map, general_append
 
 
 def recursive_load(strings, paths=None):
+    """
+    Load strings or file contents
+    :param strings: Represents yaml strings
+    :param paths: Optionally context paths for each string, used for solving imports
+    :return: an instance of ApplicationContext
+    """
     if paths is not None:
         assert len(paths) == len(strings)
         assert all(map(os.path.exists, paths))
 
-    all_objects = map(yaml.load, strings)
+    parsed_strings = map(yaml.load, strings)
     included_files = []
     res = {}
-    for i, d in enumerate(all_objects):
-        imports = d.pop('import', [])
+    for i, parsed_string in enumerate(parsed_strings):
+
+        # Collect imports
+        imports = parsed_string.pop('import', [])
         if isinstance(imports, basestring): imports = [imports]
 
         for fname in imports:
@@ -23,7 +31,8 @@ def recursive_load(strings, paths=None):
             fname = os.path.join(paths[i], fname)
             included_files.append(fname)
 
-        for obj_name, obj in d.iteritems():
+        # Do not allow overrides between files, might be caotic
+        for obj_name, obj in parsed_string.iteritems():
             if obj_name in res:
                 raise RuntimeError(
                     "The object name {} is defined more than once.".format(obj_name) +
@@ -31,6 +40,7 @@ def recursive_load(strings, paths=None):
                 )
             res[obj_name] = obj
 
+    # After having processed everything, let's consider the included files
     if included_files:
         tmp_ctx = ApplicationContext.load(*included_files)
         for obj_name, obj in tmp_ctx.objects.iteritems():
@@ -59,6 +69,15 @@ class ApplicationContext(object):
         objects = recursive_load(strings, paths)
         return cls(objects)
 
+    def alias(self, key, object_name):
+        if object_name not in self.objects:
+            raise ValueError('Added an alias to a not existing object ("{}")'.format(object_name))
+
+        if key in self.objects:
+            raise ValueError('Invalid alias name "{}" already exists'.format(key))
+
+        self.objects[key] = '${}'.format(object_name)
+
     cache = DictDataStore()
 
     @cache.autosave(method_type='instance')
@@ -75,23 +94,26 @@ class ApplicationContext(object):
 
         if is_iterable(res):
             res = self.resolve(res)
+        else:
+            res = self._try_load(res)
 
         return res
 
     def resolve(self, obj):
         res = general_new(obj)
 
-        def try_load(v):
-            if isinstance(v, basestring) and v.startswith('$'):
-                return self._get_raw(v[1:])
-            else:
-                return v
-
         for k, v in general_iterator(obj):
             if is_iterable(v):
-                v = recursive_map(v, try_load)
+                v = recursive_map(v, self._try_load)
             else:
-                v = try_load(v)
+                v = self._try_load(v)
 
-            res[k] = v
+            general_append(res, k, v)
         return res
+
+    def _try_load(self, v):
+        if isinstance(v, basestring) and v.startswith('$'):
+            return self._get_raw(v[1:])
+        else:
+            return v
+

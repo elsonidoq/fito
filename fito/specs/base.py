@@ -69,7 +69,6 @@ class InvalidSpecInstance(Exception):
 
 class MainModuleWarning(UserWarning): pass
 
-
 warnings.filterwarnings('once', '.*', MainModuleWarning, __name__)
 
 
@@ -143,11 +142,6 @@ class Spec(object):
     >>>     exp = Experiment.from_yaml()
     """
     __metaclass__ = SpecMeta
-
-    # There are a lot of subclasses of Spec that are dinamically created. Sometimes it's usefull to be able to know
-    # whether that's the case or not
-    # TODO: make it read only
-    dinamically_created = False
 
     def __init__(self, *args, **kwargs):
         fields = dict(self.get_fields())
@@ -464,9 +458,9 @@ class Spec(object):
             raise ValueError("Invalid type for spec_type")
 
         if (
-                        isinstance(spec_type, dict) or
-                            ':' in spec_type or
-                        '.' in spec_type
+                isinstance(spec_type, dict) or
+                ':' in spec_type or
+                '.' in spec_type
         ):
             cls = obj_from_path(spec_type)
             assert issubclass(cls, Spec), "The provided path does not point to an Spec subclass"
@@ -612,6 +606,15 @@ class Spec(object):
 
         return '\n'.join(res) + '\n'
 
+    def get_subspecs(self, include_self=True):
+        res = []
+        if include_self: res.append(self)
+
+        for _, spec in self.get_spec_fields().iteritems():
+            if spec is not None:
+                res.extend(spec.get_subspecs(include_self=True))
+
+        return res
 
 def get_import_path(obj, *attrs):
     """

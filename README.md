@@ -1,7 +1,8 @@
 # About
-The data science ORM.
+Fito is to Data Science what SQLAlchemy is for data bases.
+Fito is the Data Science ORM.
 
-Fito is a Python module that helps you organize you code, and integrate
+It helps you organize you code and integrate
 different technologies while handling a consistent and clear 
 object model.
 

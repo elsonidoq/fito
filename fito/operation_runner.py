@@ -9,6 +9,10 @@ class OperationRunner(Spec):
     execute_cache_size = NumericField(default=0)
     verbose = PrimitiveField(default=False)
 
+    # Whether to force execution and ignore caches
+    # Helps encapsulate the behaviour so the Operation.apply remains simple
+    force = PrimitiveField(serialize=False, default=False)
+
     def __init__(self, *args, **kwargs):
         super(OperationRunner, self).__init__(*args, **kwargs)
         if self.execute_cache_size == 0:
@@ -16,18 +20,39 @@ class OperationRunner(Spec):
         else:
             self.execute_cache = FifoCache(self.execute_cache_size, self.verbose)
 
+    def alias(self, **kwargs):
+        """
+        Same as self.replace, but keeps the same execute_cache
+        """
+        res = self.replace(**kwargs)
+        if res.execute_cache is not None:
+            res.execute_cache = self.execute_cache
+        return res
+
     # TODO: The FifoCache can be casted into a FifoDataStore, and make this function an @autosave
-    def execute(self, operation):
+    def execute(self, operation, force=False):
         """
         Executes an operation using this data store as input
         If this data store was configured to use an execute cache, it will be used
-        """
 
-        functions = [
-            lambda: self._get_memory_cache(operation),
-            lambda: self._get_data_store_cache(operation),
-            lambda: operation.apply(self)
-        ]
+        :param force: Whether to ignore the current cached value of this operation
+        """
+        force = force or self.force
+        if not force:
+            # if not force, then check the caches out
+            functions = [
+                lambda: self._get_memory_cache(operation),
+                lambda: self._get_data_store_cache(operation),
+            ]
+        else:
+            functions = []
+
+        functions.append(
+            lambda: operation.apply(
+                self.alias(force=force)
+            )
+        )
+
         for func in functions:
             res = func()
             if res is not None: break
