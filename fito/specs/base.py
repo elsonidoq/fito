@@ -103,6 +103,10 @@ class SpecMeta(type):
         return res
 
 
+class MissingUnwiredParamError(Exception):
+    pass
+
+
 @total_ordering
 class Spec(object):
     """
@@ -150,16 +154,29 @@ class Spec(object):
         self.initialize(fields, *args, **kwargs)
 
     @classmethod
-    def auto_instance(cls, **kwargs):
+    def auto_instance(cls, unwired_params):
         fields = dict(cls.get_fields())
-        instance_kwargs = {k: v for k, v in kwargs.iteritems() if k in fields}
 
+        instance_kwargs = {}
         for field, field_spec in fields.iteritems():
-            if field not in instance_kwargs \
-                    and isinstance(field_spec, BaseSpecField) \
-                    and not field_spec.has_default_value():
+            if field in unwired_params:
+                if isinstance(field_spec, BaseSpecField):
+                    # If there was something specified and it is a spec, lets recurse
+                    try:
+                        instance_kwargs[field] = field_spec.base_type.auto_instance(unwired_params.get(field, {}))
+                    except MissingUnwiredParamError, e:
+                        param = e.args[0].split()[-1]
+                        raise MissingUnwiredParamError("Missing unwired param for {}.{}".format(field, param))
+                else:
+                    # If it was a primitive field, assume that's the desired value
+                    instance_kwargs[field] = unwired_params[field]
 
-                instance_kwargs[field] = field_spec.base_type.auto_instance(**kwargs)
+            elif field_spec.has_default_value():
+                # If it has default value, then use it
+                instance_kwargs[field] = field_spec.default
+            else:
+                # Otherwise I don'w know how to instance it
+                raise MissingUnwiredParamError("Missing unwired param for {}".format(field))
 
         return cls(**instance_kwargs)
 
@@ -447,9 +464,9 @@ class Spec(object):
             raise ValueError("Invalid type for spec_type")
 
         if (
-                isinstance(spec_type, dict) or
-                ':' in spec_type or
-                '.' in spec_type
+                        isinstance(spec_type, dict) or
+                            ':' in spec_type or
+                        '.' in spec_type
         ):
             cls = obj_from_path(spec_type)
             assert issubclass(cls, Spec), "The provided path does not point to an Spec subclass"
