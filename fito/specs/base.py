@@ -501,12 +501,13 @@ class Spec(object):
 
                 def recursion_condition(obj):
                     try:
+                        # TODO: this masks errors in a very ugly way
                         Spec.dict2spec(obj)
                         return False
                     except:
                         return is_iterable(obj)
 
-                val = recursive_map(kwargs[attr], f, recursion_condition)
+                val = recursive_map(val, f, recursion_condition)
                 if isinstance(attr_type, ArgsField):
                     args = tuple(val)
                 elif isinstance(attr_type, KwargsField):
