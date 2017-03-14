@@ -1,4 +1,4 @@
-from fito.operations.operation import Operation, OperationField
+from fito.operations.operation import Operation
 from fito.specs.base import get_import_path, Spec
 from fito.specs.fields import UnboundPrimitiveField, PrimitiveField, SpecField
 from fito.specs.utils import recursive_map
@@ -34,9 +34,6 @@ class StorageRefactor(Operation):
 
     def apply(self, runner):
         assert isinstance(self.doc, dict)
-
-        # if 'operation_1' in self.doc['type']: import ipdb;ipdb.set_trace()
-
         doc = self.chain_transformations(self.doc)
         return recursive_map(doc, self.chain_transformations)
 
