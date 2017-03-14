@@ -6,6 +6,7 @@ from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import as_operation
 from fito.specs.base import get_import_path
 from fito.specs.fields import NumericField, PrimitiveField
+from fito.global_config import global_config
 
 
 class BaseDataStore(OperationRunner):
@@ -37,6 +38,9 @@ class BaseDataStore(OperationRunner):
         Gets an operation from this data store.
         If you provide a string, it is assumed to be a `Get`
         """
+        if global_config.version_tracker is not None:
+            global_config.version_tracker.record_signature(type(spec))
+
         if self.get_cache is None:
             return self._get(spec)
         else:
@@ -60,6 +64,15 @@ class BaseDataStore(OperationRunner):
         raise NotImplementedError()
 
     def save(self, spec, object):
+        if global_config.version_tracker is not None:
+            global_config.version_tracker.record_signature(type(spec))
+
+        if self.get_cache is not None:
+            self.get_cache.set(spec, object)
+
+        self._save(spec, object)
+
+    def _save(self, spec, object):
         """
         Actual implementation that saves an object associated with the id or operation
         """
