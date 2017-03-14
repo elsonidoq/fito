@@ -1,4 +1,5 @@
-from fito import Spec, SpecField
+from fito import Spec, SpecField, PrimitiveField
+from fito.data_store.refactor import StorageRefactor
 from fito.specs.fields import CollectionField
 
 
@@ -7,9 +8,29 @@ class Diff(Spec):
     removed_fields = CollectionField()
     changed_fields = CollectionField()
 
+    def create_refactor(self):
+        if len(self.changed_fields) > 0:
+            raise RuntimeError("Don't know how to handle modified fields yet")
+
+        res = StorageRefactor()
+        cls = type(self)
+
+        for field, field_spec in self.added_fields:
+            if not field_spec.has_default():
+                raise RuntimeError("Can not add field '{}'. It doesn't have a default value".format(field))
+            res = res.add_field(cls, field, default_value=field_spec.default)
+
+        for field in self.removed_fields:
+            res = res.remove_field(cls, field)
+
+        return res
+
+    def is_empty(self):
+        return len(self.added_fields) == 0 and len(self.removed_fields) == 0 and len(self.changed_fields) == 0
+
 
 class SpecSignature(Spec):
-    spec_class = SpecField(0, is_type=True)
+    spec_class = PrimitiveField(0, is_type=True)
     fields = CollectionField(1)
 
     def diff(self, other):
