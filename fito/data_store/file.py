@@ -226,7 +226,7 @@ class FileDataStore(BaseDataStore):
                 except OSError:
                     pass
 
-    def save(self, spec, obj):
+    def _save(self, spec, obj):
         subdir = self.get_dir_for_saving(spec)
         key_fname = os.path.join(subdir, 'key')
         try:
@@ -235,7 +235,7 @@ class FileDataStore(BaseDataStore):
 
             self.serializer.save(obj, subdir)
         except Exception, e:
-            # clean up the mess to mantain the invariatn
+            # clean up the mess to mantain the invariant
             if os.path.exists(key_fname): os.unlink(key_fname)
             if os.path.exists(subdir): shutil.rmtree(subdir)
 

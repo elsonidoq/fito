@@ -10,7 +10,7 @@ class DictDataStore(BaseDataStore):
     def iteritems(self):
         return self.data.iteritems()
 
-    def save(self, spec, object):
+    def _save(self, spec, object):
         self.data[spec] = object
 
     def _get(self, spec):

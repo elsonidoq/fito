@@ -159,9 +159,7 @@ class MongoHashMap(BaseDataStore):
         doc = self.coll.find_one({'_id': id})
         return self._parse_doc(doc)[1]
 
-
-
-    def save(self, spec, values):
+    def _save(self, spec, values):
         doc = self._build_doc(spec, values)
         self._insert([doc])
 
