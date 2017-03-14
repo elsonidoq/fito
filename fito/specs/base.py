@@ -334,10 +334,11 @@ class Spec(object):
                 res[attr] = getattr(self, attr)
         return res
 
-    def get_signature(self):
+    @classmethod
+    def get_signature(cls):
         # Lazy import
         from signature import SpecSignature
-        return SpecSignature(type(self), dict(self.get_fields()))
+        return SpecSignature(cls, dict(cls.get_fields()))
 
     @memoized_property
     def key(self):
