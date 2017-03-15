@@ -134,10 +134,12 @@ class Spec(object):
     >>>
 
     And write it to a nice yaml
+
     >>> with open('exp_spec.yaml', 'w') as f:
     >>>     exp.yaml.dump(f)
 
     And load it back
+
     >>> with open('exp_spec.yaml') as f:
     >>>     exp = Experiment.from_yaml()
     """
