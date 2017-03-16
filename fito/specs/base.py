@@ -10,7 +10,7 @@ from itertools import chain
 
 from fito.specs.fields import KwargsField, ArgsField, Field, BaseSpecField, SpecCollection, UnboundField, \
     PrimitiveField
-from fito.specs.utils import recursive_map, is_iterable
+from fito.specs.utils import recursive_map, is_iterable, matching_fields
 from memoized_property import memoized_property
 
 try:
@@ -68,6 +68,7 @@ class InvalidSpecInstance(Exception):
 
 
 class MainModuleWarning(UserWarning): pass
+
 
 warnings.filterwarnings('once', '.*', MainModuleWarning, __name__)
 
@@ -663,6 +664,11 @@ class Spec(object):
                 res.extend(spec.get_subspecs(include_self=True))
 
         return res
+
+    def similarity(self, other):
+        if type(self) is not type(other): return 0
+        return matching_fields(self.to_dict(), other.to_dict())
+
 
 def get_import_path(obj, *attrs):
     """
