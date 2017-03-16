@@ -110,6 +110,17 @@ class BaseDataStore(OperationRunner):
                 else:
                     raise e
 
+    def find_similar(self, spec):
+        res = []
+        for other_spec in self.iterkeys():
+            similarity = other_spec.similarity(spec)
+            if similarity > 0:
+                res.append((other_spec, similarity))
+
+        res.sort(key=lambda x: -x[1])
+
+        return res
+
 
 class AutosavedFunction(as_operation):
     cache_on = PrimitiveField()  # make cache_on a required parameter
