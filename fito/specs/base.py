@@ -779,24 +779,5 @@ def obj_from_path(path):
         return obj
 
 
-def parse_string_path(path):
-    parts = path.split(':')
-
-    assert len(parts) == 2
-    full_path, class_name = parts
-
-    fromlist = '.'.join(full_path.split('.')[:-1])
-
-    try:
-        module = __import__(full_path, fromlist=fromlist)
-    except ImportError:
-        raise RuntimeError("Couldn't import {}".format(path))
-
-    try:
-        return getattr(module, class_name)
-    except AttributeError:
-        raise RuntimeError("Couldn't get '{}' attribute from module '{}'".format(class_name, module))
-
-
 def load_object(id):
     return ctypes.cast(id, ctypes.py_object).value
