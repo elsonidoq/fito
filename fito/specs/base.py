@@ -90,16 +90,21 @@ class SpecMeta(type):
                 "Received a weird module path ({}). This seems to happen when ".format(repr(res)) +
                 "a class is imported indirectly from a yaml"
             )
-        fields = dict(res.get_fields())
-        fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
 
-        if fields_pos != range(len(fields_pos)):
-            raise ValueError("Bad `pos` for attribute in class %s" % name)
-
-        if 'key' in fields:
-            raise ValueError("Can not use the `key` field, it's reserved")
+        check_fields(dict(res.get_bound_fields()), name)
+        check_fields(dict(res.get_unbound_fields()), name)
 
         return res
+
+
+def check_fields(fields, class_name):
+    fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
+
+    if fields_pos != range(len(fields_pos)):
+        raise ValueError("Bad `pos` for attribute in class %s" % class_name)
+
+    if 'key' in fields:
+        raise ValueError("Can not use the `key` field, it's reserved")
 
 
 class MissingUnwiredParamError(Exception):
@@ -144,15 +149,14 @@ class Spec(object):
     __metaclass__ = SpecMeta
 
     def __init__(self, *args, **kwargs):
-        fields = dict(self.get_fields())
-        self.initialize(fields, *args, **kwargs)
+        self.initialize(True, *args, **kwargs)
 
     @classmethod
     def auto_instance(cls, locals, globals):
         context = locals.copy()
         context.update(globals)
 
-        fields = dict(cls.get_fields())
+        fields = dict(cls.get_bound_fields())
 
         instance_kwargs = {}
         for field, field_spec in fields.iteritems():
@@ -183,15 +187,37 @@ class Spec(object):
 
         return cls(**instance_kwargs)
 
-    def initialize(self, fields, *args, **kwargs):
+    def initialize(self, being_created, *args, **kwargs):
+        """
+        Initializes a spec. It handles the bound/unbound semantic.
+
+        You have to initialize the spec with all it's bound fields.
+        Once you've initialized the spec, you can initialize it again, this time with all it's unbound fields.
+
+        However, you can initialize the spec all at once too with both bound and unbound fields. That case happens when
+        you load a totally bound serialized spec.
+
+        Lastly, the positional arguments' semantic depends on the initialization state:
+        * When the spec is instanced, *args will map to bound fields
+        * When the spec is then bound, *args will map to unbound fields
+
+        :param being_created: Tells the method whether *args map to bound or unbound fields
+        """
         pos2name = {}
         kwargs_field = None
         args_field = None
-        for attr_name, attr_type in fields.iteritems():
+
+        all_fields = dict(self.get_fields())
+        bound_fields = dict(self.get_bound_fields())
+        unbound_fields = dict(self.get_unbound_fields())
+
+        # Check positional arguments
+        for attr_name, attr_type in (bound_fields if being_created else unbound_fields).iteritems():
             if attr_type.pos is not None:
                 pos2name[attr_type.pos] = attr_name
 
             elif isinstance(attr_type, KwargsField):
+                # KwargsField always have pos = None
                 if kwargs_field is not None:
                     raise RuntimeError(
                         "A spec can have at most one kwargs field, found {} and {}".format(attr_name, kwargs_field))
@@ -229,45 +255,51 @@ class Spec(object):
                 kwargs[pos2name[i]] = arg
 
         # Set defaults for missing kwargs, that do have default
-        for attr, attr_type in fields.iteritems():
-            if attr_type.has_default_value() and attr not in kwargs:
-                kwargs[attr] = attr_type.default
+        for attr, attr_type in (bound_fields if being_created else unbound_fields).iteritems():
+            if attr not in kwargs:
+                if attr_type.has_default_value():
+                    kwargs[attr] = attr_type.default
 
         # If there's an actual kwargs field, put all extra keyword arguments there
         if kwargs_field is not None:
             kwargs_param_value = {
                 attr: attr_type
                 for attr, attr_type in kwargs.iteritems()
-                if attr not in fields
-                }
+                if attr not in all_fields
+            }
 
             kwargs = {
                 attr: attr_type
                 for attr, attr_type in kwargs.iteritems()
-                if attr in fields and attr != kwargs_field and attr != args_field
-                }
+                if attr in all_fields and attr != kwargs_field and attr != args_field
+            }
 
-        # Check that len(kwargs) == len(fields)
-        if len(kwargs) > len(fields):
+        # if being created, you can pass both bound and unbound
+        # if being bound, you can only pass unbound fields
+        if len(kwargs) > being_created * len(bound_fields) + len(unbound_fields):
             raise InvalidSpecInstance("Class %s does not take the following arguments: %s" % (
-                type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
+                type(self).__name__, ", ".join(f for f in kwargs if f not in bound_fields)))
 
-        elif len(kwargs) < len(fields) - (args_field is not None) - (kwargs_field is not None):
+        elif len(kwargs) < len(bound_fields if being_created else unbound_fields) - (args_field is not None) - (kwargs_field is not None):
             raise InvalidSpecInstance("Missing arguments for class %s: %s" % (
-                type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
+                type(self).__name__, ", ".join(f for f in all_fields if f not in kwargs)))
 
         for attr in kwargs:
-            if attr not in fields:
+            if attr not in (all_fields if being_created else unbound_fields):
                 raise InvalidSpecInstance("Received extra parameter {}".format(attr))
 
         # Make sure that everything receives what it expects
-        for attr, attr_type in fields.iteritems():
-            val = kwargs.get(attr)
+        for attr, val in kwargs.iteritems():
+            attr_type = all_fields[attr]
             if val is None: continue
+
+            # Do not check types for unbound fields yet
+            if isinstance(val, UnboundField): continue
+
             if not attr_type.check_valid_value(val):
                 raise InvalidSpecInstance(
                     (
-                        "Invalid value for parameter {attr} in {type_name}." +
+                        "Invalid value for parameter {attr} in {type_name}. " +
                         "Received {val}, expected {expected_types}\n" +
                         "If you think {val} is an instance of any of the allowed classes ({expected_types}), then this " +
                         "might be an issue related to the having reloaded a module containing de definition of {val}"
@@ -352,8 +384,11 @@ class Spec(object):
 
         res = {'type': import_path}
 
-        for attr, attr_type in type(self).get_fields():
+        for attr, attr_type in self.get_fields():
             val = getattr(self, attr)
+
+            # Do not consider unbound fields
+            if isinstance(val, UnboundField): continue
 
             if isinstance(attr_type, PrimitiveField) and (attr_type.serialize or include_all):
                 if inspect.isfunction(val) or inspect.isclass(val):
@@ -424,23 +459,26 @@ class Spec(object):
     def get_fields(cls):
         for k in dir(cls):
             v = getattr(cls, k)
-            if isinstance(v, Field) and not isinstance(v, UnboundField):
+            if isinstance(v, Field):
                 yield k, v
 
     @classmethod
-    def get_unbinded_fields(cls):
-        for k in dir(cls):
-            v = getattr(cls, k)
+    def get_unbound_fields(cls):
+        for k, v in cls.get_fields():
             if isinstance(v, UnboundField):
                 yield k, v
 
+    @classmethod
+    def get_bound_fields(cls):
+        for k, v in cls.get_fields():
+            if not isinstance(v, UnboundField):
+                yield k, v
+
     def bind(self, *args, **kwargs):
-        fields = dict(self.get_unbinded_fields())
-        return self.copy().initialize(fields, *args, **kwargs)
+        return self.copy().initialize(False, *args, **kwargs)
 
     def inplace_bind(self, *args, **kwargs):
-        fields = dict(self.get_unbinded_fields())
-        return self.initialize(fields, *args, **kwargs)
+        return self.initialize(False, *args, **kwargs)
 
     @classmethod
     def _get_all_subclasses(cls):
