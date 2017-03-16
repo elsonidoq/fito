@@ -6,6 +6,7 @@ from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import as_operation
 from fito.specs.base import get_import_path
 from fito.specs.fields import NumericField, PrimitiveField
+from fito.specs.utils import matching_fields
 
 
 class BaseDataStore(OperationRunner):
@@ -99,6 +100,7 @@ class BaseDataStore(OperationRunner):
         return AutosavedFunction(*args, **kwargs)
 
     def refactor(self, refactor_operation, out_data_store, permissive=False):
+        # TODO: rewrite iterkeys, it's horrible!
         for id, doc in self.iterkeys(raw=True):
             try:
                 refactored_doc = refactor_operation.bind(doc=doc).execute()
@@ -109,6 +111,27 @@ class BaseDataStore(OperationRunner):
                     warnings.warn(' '.join(e.args))
                 else:
                     raise e
+
+    def find_similar(self, spec_or_dict):
+        raw = isinstance(spec_or_dict, dict)
+
+        res = []
+        for other_spec in self.iterkeys(raw=raw):
+            if not raw:
+                similarity = other_spec.similarity(spec_or_dict)
+            elif 'type' in spec_or_dict:
+                _, other_spec = other_spec
+                if other_spec['type'] != spec_or_dict['type']:
+                    similarity = 0
+                else:
+                    similarity = matching_fields(spec_or_dict, other_spec)
+
+            if similarity > 0:
+                res.append((other_spec, similarity))
+
+        res.sort(key=lambda x: -x[1])
+
+        return res
 
 
 class AutosavedFunction(as_operation):

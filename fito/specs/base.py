@@ -10,7 +10,7 @@ from itertools import chain
 
 from fito.specs.fields import KwargsField, ArgsField, Field, BaseSpecField, SpecCollection, UnboundField, \
     PrimitiveField
-from fito.specs.utils import recursive_map, is_iterable
+from fito.specs.utils import recursive_map, is_iterable, matching_fields
 from memoized_property import memoized_property
 
 try:
@@ -68,6 +68,7 @@ class InvalidSpecInstance(Exception):
 
 
 class MainModuleWarning(UserWarning): pass
+
 
 warnings.filterwarnings('once', '.*', MainModuleWarning, __name__)
 
@@ -664,6 +665,11 @@ class Spec(object):
 
         return res
 
+    def similarity(self, other):
+        if type(self) is not type(other): return 0
+        return matching_fields(self.to_dict(), other.to_dict())
+
+
 def get_import_path(obj, *attrs):
     """
     Builds a string representing an object.
@@ -771,25 +777,6 @@ def obj_from_path(path):
             else:
                 obj = getattr(obj, attr)
         return obj
-
-
-def parse_string_path(path):
-    parts = path.split(':')
-
-    assert len(parts) == 2
-    full_path, class_name = parts
-
-    fromlist = '.'.join(full_path.split('.')[:-1])
-
-    try:
-        module = __import__(full_path, fromlist=fromlist)
-    except ImportError:
-        raise RuntimeError("Couldn't import {}".format(path))
-
-    try:
-        return getattr(module, class_name)
-    except AttributeError:
-        raise RuntimeError("Couldn't get '{}' attribute from module '{}'".format(class_name, module))
 
 
 def load_object(id):

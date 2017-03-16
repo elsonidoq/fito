@@ -9,7 +9,7 @@ from fito import Spec
 from fito import as_operation
 from fito.data_store import file, dict_ds, mongo
 from fito.data_store.mongo import get_collection, global_client
-from test_operation import get_test_operations
+from test_operation import get_test_operations, partial, AddOperation
 from test_spec import get_test_specs
 
 
@@ -57,9 +57,9 @@ class TestDataStore(unittest.TestCase):
         test_specs = get_test_specs(only_lists=True)
         test_operations = get_test_operations()
 
-        rnd = Random(42)
-        rnd.shuffle(test_specs)
-        rnd.shuffle(test_operations)
+        self.rnd = Random(42)
+        self.rnd.shuffle(test_specs)
+        self.rnd.shuffle(test_operations)
 
         self.indexed_operations = test_operations[:len(test_operations) / 2]
         self.indexed_specs = test_specs[:len(test_specs) / 2] + self.indexed_operations
@@ -145,6 +145,30 @@ class TestDataStore(unittest.TestCase):
                 for j in xrange(5, 10):
                     assert autosaved_func.operation_class(j) in ds.execute_cache.queue
 
+    def test_find_similar(self):
+        add_operations = [
+            e for e in self.rnd.sample(self.indexed_operations, 2) + self.rnd.sample(self.not_indexed_specs, 2)
+            if isinstance(e, AddOperation)
+        ]
+
+        for i, ds in enumerate(self.data_stores):
+            for raw in True, False:
+                for j in xrange(5):
+                    p = partial(j).bind(1)
+                    matching = ds.find_similar(p.to_dict() if raw else p)
+
+                    for match, score in matching:
+                        if raw:
+                            expected = (match['a'] == p.a) + (match['b'] == p.b) + 1
+                        else:
+                            expected = (match.a == p.a) + (match.b == p.b) + 1
+                        assert score == expected
+
+                for add_op in add_operations:
+                    matching = ds.find_similar(add_op.to_dict() if raw else add_op)
+                    # It's a mess to compute the score without using matching_fields
+                    best_match, score = matching[0]
+                    assert (best_match == (add_op.to_dict() if raw else add_op)) == (add_op in ds)
 
 def func(i):
     return i

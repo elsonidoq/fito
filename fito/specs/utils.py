@@ -81,3 +81,21 @@ def recursive_map(iterable, callable, recursion_condition=None):
 
     return res
 
+
+def is_dict(obj): return isinstance(obj, dict)
+
+
+def matching_fields(d1, d2):
+    res = 0
+
+    keys = set(d1).union(d2)
+
+    for k in keys:
+        in_both = k in d1 and k in d2
+        if in_both:
+            if is_dict(d1[k]) and is_dict(d2[k]):
+                res += matching_fields(d1[k], d2[k])
+            else:
+                res += d1[k] == d2[k]
+
+    return res
