@@ -9,7 +9,7 @@ from fito import Spec
 from fito import as_operation
 from fito.data_store import file, dict_ds, mongo
 from fito.data_store.mongo import get_collection, global_client
-from test_operation import get_test_operations
+from test_operation import get_test_operations, partial
 from test_spec import get_test_specs
 
 
@@ -145,6 +145,16 @@ class TestDataStore(unittest.TestCase):
                 for j in xrange(5, 10):
                     assert autosaved_func.operation_class(j) in ds.execute_cache.queue
 
+    def test_find_similar(self):
+        for i, ds in enumerate(self.data_stores):
+            for j in xrange(5):
+                p = partial(j).bind(1)
+                matching = ds.find_similar(p)
+
+                for match, score in matching:
+                    assert score == (match.a == p.a) + (match.b == p.b) + 1
+
+        assert False, "missing test with compound unbound specs"
 
 def func(i):
     return i
