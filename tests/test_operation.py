@@ -46,11 +46,11 @@ class SpecWithOperations(Operation):
         return self.a + runner.execute(self.b)
 
     @as_operation(method_type='instance', b=UnboundPrimitiveField)
-    def unbinded_instance_method(self, b):
+    def unbound_instance_method(self, b):
         return self.a + b
 
     @as_operation(method_type='class', b=UnboundSpecField)
-    def unbinded_class_method(cls, b):
+    def unbound_class_method(cls, b):
         return b
 
 
@@ -77,10 +77,10 @@ def get_test_operations():
 
 def get_unbound_operations(bound):
     primitive_bind = map(partial, range(10)) + [
-        SpecWithOperations(0).unbinded_instance_method(),
+        SpecWithOperations(0).unbound_instance_method(),
     ]
     spec_bind = [
-        SpecWithOperations.unbinded_class_method(),
+        SpecWithOperations.unbound_class_method(),
     ]
     if bound:
         res = [e.bind(1) for e in primitive_bind] + [e.bind(Spec()) for e in spec_bind]
@@ -97,6 +97,9 @@ class Number(Numeric):
 
     def apply(self, runner):
         return self.n
+
+    def __repr__(self):
+        return str(self.n)
 
 
 class AddOperation(Numeric):
