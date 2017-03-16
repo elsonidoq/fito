@@ -548,10 +548,7 @@ class Spec(object):
         return hash(self.key)
 
     def __eq__(self, other):
-        return (
-            type(self) is type(other) and
-            self.key == other.key
-        )
+        return self.key == other.key
 
     def __lt__(self, other):
         return self.key < other.key
