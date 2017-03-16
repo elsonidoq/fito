@@ -72,17 +72,17 @@ def get_test_operations():
     for i in xrange(10):
         numbers.append(rnd.choice(numbers) + rnd.choice(numbers))
 
-    return res + numbers + get_unbinded_operations(binded=True)
+    return res + numbers + get_unbound_operations(bound=True)
 
-def get_unbinded_operations(binded):
-    primitive_bind = [
-        partial(1),
+
+def get_unbound_operations(bound):
+    primitive_bind = map(partial, range(10)) + [
         SpecWithOperations(0).unbinded_instance_method(),
     ]
     spec_bind = [
         SpecWithOperations.unbinded_class_method(),
     ]
-    if binded:
+    if bound:
         res = [e.bind(1) for e in primitive_bind] + [e.bind(Spec()) for e in spec_bind]
     return res
 
@@ -120,5 +120,3 @@ class TestOperation(unittest.TestCase):
     def test_memory_object(self):
         l = MemoryObject(range(10))
         assert l.obj == MemoryObject.dict2spec(l.to_dict()).obj
-
-
