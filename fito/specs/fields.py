@@ -7,6 +7,24 @@ from fito.specs.utils import is_iterable, general_iterator
 _no_default = object()
 
 
+class MockIterable(object):
+    def __len__(self): return
+
+    def __getitem__(self, _): return
+
+    def __setitem__(self, _, __): return
+
+    def __delitem__(self, _): return
+
+    def __reversed__(self): return
+
+    def __contains__(self, _): return
+
+    def __setslice__(self, _, __, ___): return
+
+    def __delslice__(self, _, __): return
+
+
 class Field(object):
     """
     Base class for field definition on an :py:class:`Spec`
@@ -56,23 +74,7 @@ class PrimitiveField(Field):
         return [object]
 
 
-class CollectionField(PrimitiveField):
-    def __len__(self): return
-
-    def __getitem__(self, _): return
-
-    def __setitem__(self, _, __): return
-
-    def __delitem__(self, _): return
-
-    def __reversed__(self): return
-
-    def __contains__(self, _): return
-
-    def __setslice__(self, _, __, ___): return
-
-    def __delslice__(self, _, __): return
-
+class CollectionField(PrimitiveField, MockIterable):
     @property
     def allowed_types(self):
         return list, dict, tuple
@@ -156,7 +158,7 @@ def SpecField(pos=None, default=_no_default, base_type=None, serialize=True, spe
     return return_type(pos=pos, default=default, base_type=base_type, serialize=serialize)
 
 
-class SpecCollection(Field):
+class SpecCollection(Field, MockIterable):
     """
     Specifies a Field whose value is going to be a collection of specs
     """
