@@ -94,7 +94,7 @@ def matching_fields(d1, d2):
         in_both = k in d1 and k in d2
         if in_both:
             if is_dict(d1[k]) and is_dict(d2[k]):
-                res += matching_fields(d1, d2)
+                res += matching_fields(d1[k], d2[k])
             else:
                 res += d1[k] == d2[k]
 
