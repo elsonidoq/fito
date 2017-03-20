@@ -227,7 +227,7 @@ class Spec(object):
                 )
         for attr in kwargs:
             if attr not in fields:
-                raise InvalidSpecInstance("Received extra parameter {}".format(attr))
+                raise InvalidSpecInstance("{} received extra parameter {}".format(type(self).__name__, attr))
         if args_field is not None:
             setattr(self, args_field, tuple(args_param_value))
         if kwargs_field is not None:
