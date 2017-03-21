@@ -8,17 +8,17 @@ class StorageRefactor(Operation):
     doc = UnboundPrimitiveField(0, serialize=False)
     storage_refactor = SpecField(default=None)
 
-    def add_field(self, field_type, field_name, default_value=None):
-        return AddField(field_type, field_name, default_value, storage_refactor=self)
+    def add_field(self, spec_type, field_name, default_value=None):
+        return AddField(spec_type, field_name, default_value, storage_refactor=self)
 
-    def rename_field(self, field_type, source, target):
-        return RenameField(field_type, source, target, storage_refactor=self)
+    def rename_field(self, spec_type, source, target):
+        return RenameField(spec_type, source, target, storage_refactor=self)
 
-    def remove_field(self, field_type, field_name):
-        return RemoveField(field_type, field_name, storage_refactor=self)
+    def remove_field(self, spec_type, field_name):
+        return RemoveField(spec_type, field_name, storage_refactor=self)
 
-    def change_type(self, field_type, new_type):
-        return ChangeType(field_type, new_type, storage_refactor=self)
+    def change_type(self, spec_type, new_type):
+        return ChangeType(spec_type, new_type, storage_refactor=self)
 
     def _bind(self, meth_name, *args, **kwargs):
         res = getattr(super(StorageRefactor, self), meth_name)(*args, **kwargs)
@@ -51,16 +51,16 @@ class StorageRefactor(Operation):
 
 
 class FilteredStorageRefactor(StorageRefactor):
-    field_type = PrimitiveField(0)
+    spec_type = PrimitiveField(0)
 
     def matches(self, doc):
-        return isinstance(doc, dict) and doc['type'] == self.get_field_type_string()
+        return isinstance(doc, dict) and doc['type'] == self.get_spec_type_string()
 
-    def get_field_type_string(self):
-        if isinstance(self.field_type, basestring):
-            return self.field_type
+    def get_spec_type_string(self):
+        if isinstance(self.spec_type, basestring):
+            return self.spec_type
         else:
-            return get_import_path(self.field_type)
+            return get_import_path(self.spec_type)
 
 
 class AddField(FilteredStorageRefactor):
