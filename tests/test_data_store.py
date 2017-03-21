@@ -152,23 +152,20 @@ class TestDataStore(unittest.TestCase):
         ]
 
         for i, ds in enumerate(self.data_stores):
-            for raw in True, False:
-                for j in xrange(5):
-                    p = partial(j).bind(1)
-                    matching = ds.find_similar(p.to_dict() if raw else p)
+            for j in xrange(5):
+                p = partial(j).bind(1)
+                matching = ds.find_similar(p)
 
-                    for match, score in matching:
-                        if raw:
-                            expected = (match['a'] == p.a) + (match['b'] == p.b) + 1
-                        else:
-                            expected = (match.a == p.a) + (match.b == p.b) + 1
-                        assert score == expected
+                for match, score in matching:
+                    expected = (match.a == p.a) + (match.b == p.b) + 1
+                    assert score == expected
 
-                for add_op in add_operations:
-                    matching = ds.find_similar(add_op.to_dict() if raw else add_op)
-                    # It's a mess to compute the score without using matching_fields
-                    best_match, score = matching[0]
-                    assert (best_match == (add_op.to_dict() if raw else add_op)) == (add_op in ds)
+            for add_op in add_operations:
+                matching = ds.find_similar(add_op)
+                # It's a mess to compute the score without using matching_fields
+                best_match, score = matching[0]
+                assert (best_match == add_op) == (add_op in ds)
+
 
 def func(i):
     return i
