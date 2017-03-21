@@ -1,3 +1,4 @@
+from fito.config import auto_refactor
 import warnings
 from functools import wraps
 
@@ -39,7 +40,14 @@ class BaseDataStore(OperationRunner):
         If you provide a string, it is assumed to be a `Get`
         """
         if self.get_cache is None:
-            return self._get(spec)
+            try:
+                return self._get(spec)
+            except KeyError, e:
+                if auto_refactor:
+                    self.interactive_refactor(spec)
+                    return self.get(spec)
+                else:
+                    raise e
         else:
             try:
                 return self.get_cache[spec]
@@ -112,19 +120,18 @@ class BaseDataStore(OperationRunner):
                 else:
                     raise e
 
-    def find_similar(self, spec_or_dict):
-        raw = isinstance(spec_or_dict, dict)
-
+    def find_similar(self, spec):
         res = []
-        for other_spec in self.iterkeys(raw=raw):
-            if not raw:
-                similarity = other_spec.similarity(spec_or_dict)
-            elif 'type' in spec_or_dict:
-                _, other_spec = other_spec
-                if other_spec['type'] != spec_or_dict['type']:
+        for _, other_spec_dict in self.iterkeys(raw=True):
+            try:
+                other_spec = Spec.dict2spec(other_spec_dict)
+                similarity = other_spec.similarity(spec)
+            except:
+                spec_dict = spec.to_dict()
+                if other_spec['type'] != spec_dict['type']:
                     similarity = 0
                 else:
-                    similarity = matching_fields(spec_or_dict, other_spec)
+                    similarity = matching_fields(spec_dict, other_spec)
 
             if similarity > 0:
                 res.append((other_spec, similarity))
@@ -132,6 +139,13 @@ class BaseDataStore(OperationRunner):
         res.sort(key=lambda x: -x[1])
 
         return res
+
+    def interactive_refactor(self, spec):
+        similar = self.find_similar(spec)
+
+        # print "Found "
+        # for other_spec_or_dict, score in similar:
+
 
 
 class AutosavedFunction(as_operation):
