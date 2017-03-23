@@ -255,9 +255,13 @@ class Spec(object):
             else:
                 kwargs[pos2name[i]] = arg
 
+        # Remove args_field from kwargs
+        if args_field is not None:
+            kwargs.pop(args_field, None)
+
         # Set defaults for missing kwargs, that do have default
         for attr, attr_type in (bound_fields if being_created else unbound_fields).iteritems():
-            if attr not in kwargs:
+            if attr not in kwargs and attr != args_field:
                 if attr_type.has_default_value():
                     kwargs[attr] = attr_type.default
 
@@ -272,7 +276,7 @@ class Spec(object):
             kwargs = {
                 attr: attr_type
                 for attr, attr_type in kwargs.iteritems()
-                if attr in all_fields and attr != kwargs_field and attr != args_field
+                if attr in all_fields and attr != kwargs_field
             }
 
         # if being created, you can pass both bound and unbound
