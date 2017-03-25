@@ -8,6 +8,12 @@ class StorageRefactor(Operation):
     doc = UnboundPrimitiveField(0, serialize=False)
     storage_refactor = SpecField(default=None)
 
+    def change_field(self, spec_type, field_name, old_value, new_value):
+        return ChangeField(spec_type, field_name, old_value, new_value, storage_refactor=self)
+
+    def change_type(self, spec_type, new_type):
+        return self.change_field(spec_type, 'type', get_import_path(spec_type), get_import_path(new_type))
+
     def add_field(self, spec_type, field_name, default_value=None):
         return AddField(spec_type, field_name, default_value, storage_refactor=self)
 
@@ -16,9 +22,6 @@ class StorageRefactor(Operation):
 
     def remove_field(self, spec_type, field_name):
         return RemoveField(spec_type, field_name, storage_refactor=self)
-
-    def change_type(self, spec_type, new_type):
-        return ChangeType(spec_type, new_type, storage_refactor=self)
 
     def chain_refactor(self, refactor):
         return ChainedRefactor(refactor, storage_refactor=self)
@@ -49,10 +52,25 @@ class StorageRefactor(Operation):
         return doc
 
     def chain_transformations(self, doc):
-        doc = self.transformation(doc)
+        if not self.recurse_first:
+            doc = self.transformation(doc)
+
         if self.storage_refactor is not None:
             doc = self.storage_refactor.chain_transformations(doc)
+
+        if self.recurse_first:
+            doc = self.transformation(doc)
+
         return doc
+
+    @property
+    def recurse_first(self):
+        # By default we always call self.transformation(doc) first
+        return False
+
+    @property
+    def empty(self):
+        return self.storage_refactor is None
 
 
 class ProjectedRefactor(StorageRefactor):
@@ -63,6 +81,12 @@ class ProjectedRefactor(StorageRefactor):
     field = PrimitiveField(0)
 
     def chain_transformations(self, doc):
+        return self.transformation(doc)
+
+    def transformation(self, doc):
+        # Everything should be able to receive anything. I don't like that
+        if not isinstance(doc, dict): return doc
+
         doc = doc.copy()  # this could be avoided, I prefer code clarity at this stage
 
         subfields = self.field.split('.')
@@ -76,8 +100,8 @@ class ProjectedRefactor(StorageRefactor):
                 subdoc = subdoc[field]
 
         last_field = subfields[-1]
-        if last_field in doc:
-            subdoc[doc] = self.storage_refactor.chain_transformations(subdoc[last_field])
+        if last_field in subdoc:
+            subdoc[last_field] = self.storage_refactor.chain_transformations(subdoc[last_field])
         return doc
 
 
@@ -94,13 +118,39 @@ class FilteredStorageRefactor(StorageRefactor):
     spec_type = PrimitiveField(0)
 
     def matches(self, doc):
-        return isinstance(doc, dict) and doc['type'] == self.get_spec_type_string()
+        # Everything should be able to receive anything. I don't like that
+        return isinstance(doc, dict) and 'type' in doc and doc['type'] == self.get_spec_type_string()
 
     def get_spec_type_string(self):
         if isinstance(self.spec_type, basestring):
             return self.spec_type
         else:
             return get_import_path(self.spec_type)
+
+
+class ChangeField(FilteredStorageRefactor):
+    field_name = PrimitiveField(1)
+    old_value = PrimitiveField(2)
+    new_value = PrimitiveField(3)
+
+    def matches(self, doc):
+        return \
+            (
+            super(ChangeField, self).matches(doc) and
+            self.field_name in doc and
+            doc[self.field_name] == self.old_value
+        )
+
+    def transformation(self, doc):
+        if self.matches(doc):
+            doc = doc.copy()
+            doc[self.field_name] = self.new_value
+        return doc
+
+    @property
+    def recurse_first(self):
+        # we want to apply this transformation last
+        return self.field_name == 'type'
 
 
 class AddField(FilteredStorageRefactor):
@@ -135,16 +185,3 @@ class RemoveField(FilteredStorageRefactor):
             doc.pop(self.field_name, None)
         return doc
 
-
-class ChangeType(FilteredStorageRefactor):
-    new_type = PrimitiveField(1)
-
-    def __init__(self, *args, **kwargs):
-        super(ChangeType, self).__init__(*args, **kwargs)
-        assert issubclass(self.new_type, Spec)
-
-    def transformation(self, doc):
-        if self.matches(doc):
-            doc = doc.copy()
-            doc['type'] = get_import_path(self.new_type)
-        return doc
