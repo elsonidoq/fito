@@ -29,7 +29,12 @@ class Diff(Spec):
 
             old_v = old_dict[k]
             new_v = new_dict[k]
-            if isinstance(old_v, dict) and 'type' in old_v and isinstance(new_v, dict) and 'type' in new_v:
+            if (isinstance(old_v, dict)
+                and 'type' in old_v
+                and isinstance(new_v, dict)
+                and 'type' in new_v
+                and old_v != new_v
+            ):
                 # TODO this fails if a param starts being a spec, or a param stops being a spec
                 # i.e. old_v and new_v refer to specs
 
@@ -66,9 +71,9 @@ class Diff(Spec):
             res = res.remove_field(self.spec_type, field)
 
         for field, field_change in self.changed_fields.iteritems():
-            res = res.add_field(self.spec_type, field_change.new_value)
+            res = res.change_field(self.spec_type, field, field_change.original_value, field_change.new_value)
 
-        if self.field:
+        if self.field and not res.empty:
             res = res.project(self.field)
 
         return res
@@ -102,7 +107,8 @@ class Diff(Spec):
             res.write('Changed fields:\n')
             res.write('\t{:<20} {:<20} {:<20}'.format('field', 'from value', 'to value'))
             for field, field_change in self.changed_fields.iteritems():
-                res.write('{}{:<20} {:<20} {:<20}'.format(join_template, field, field_change.original_value, field_change.new_value))
+                res.write('{}{:<20} {:<20} {:<20}'.format(join_template, field, field_change.original_value,
+                                                          field_change.new_value))
 
         return res.getvalue()
 
