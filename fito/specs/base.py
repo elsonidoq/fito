@@ -271,27 +271,34 @@ class Spec(object):
                 attr: attr_type
                 for attr, attr_type in kwargs.iteritems()
                 if attr not in all_fields
-            }
+                }
 
             kwargs = {
                 attr: attr_type
                 for attr, attr_type in kwargs.iteritems()
                 if attr in all_fields and attr != kwargs_field
-            }
+                }
 
         # if being created, you can pass both bound and unbound
         # if being bound, you can only pass unbound fields
         if len(kwargs) > being_created * len(bound_fields) + len(unbound_fields):
-            raise InvalidSpecInstance("Class %s does not take the following arguments: %s" % (
-                type(self).__name__, ", ".join(f for f in kwargs if f not in bound_fields)))
+            raise InvalidSpecInstance(
+                "Class %s does not take the following arguments: %s" % (
+                    type(self).__name__, ", ".join(f for f in kwargs if f not in bound_fields)
+                )
+            )
 
-        elif len(kwargs) < len(bound_fields if being_created else unbound_fields) - (args_field is not None) - (kwargs_field is not None):
-            raise InvalidSpecInstance("Missing arguments for class %s: %s" % (
-                type(self).__name__, ", ".join(f for f in all_fields if f not in kwargs)))
+        elif len(kwargs) < len(bound_fields if being_created else unbound_fields) - (args_field is not None) - (
+                    kwargs_field is not None):
+            raise InvalidSpecInstance(
+                "Missing arguments for class %s: %s" % (
+                    type(self).__name__, ", ".join(f for f in all_fields if f not in kwargs)
+                )
+            )
 
         for attr in kwargs:
             if attr not in (all_fields if being_created else unbound_fields):
-                raise InvalidSpecInstance("Received extra parameter {}".format(attr))
+                raise InvalidSpecInstance("{} received extra parameter {}".format(type(self).__name__, attr))
 
         # Make sure that everything receives what it expects
         for attr, val in kwargs.iteritems():
@@ -372,48 +379,6 @@ class Spec(object):
         # invalidate key cache if you change the object
         if hasattr(self, '_key'): del self._key
         return super(Spec, self).__setattr__(key, value)
-
-    def to_dict(self, include_all=False):
-        """
-        :param include_toggles: Wether to include or not toggle_fields, default=False
-        """
-        import_path = get_import_path(type(self))
-        if inspect.getmodule(type(self)).__name__ == '__main__':
-            warnings.warn(
-                """
-                The module of {} is __main__.
-                It's likely that you are not going to be able to desserialize this spec
-                """.format(type(self)),
-                MainModuleWarning
-            )
-
-        res = {'type': import_path}
-
-        for attr, attr_type in self.get_fields():
-            val = getattr(self, attr)
-
-            # Do not consider unbound fields
-            if isinstance(val, UnboundField): continue
-
-            if isinstance(attr_type, PrimitiveField) and (attr_type.serialize or include_all):
-                if inspect.isfunction(val) or inspect.isclass(val):
-                    val = 'import {}'.format(get_import_path(val))
-
-                res[attr] = val
-
-            elif isinstance(attr_type, BaseSpecField) and (include_all or attr_type.serialize):
-                res[attr] = val if val is None else val.to_dict(include_all=include_all)
-
-            elif isinstance(attr_type, SpecCollection) and (include_all or attr_type.serialize):
-                def f(obj):
-                    if isinstance(obj, Spec):
-                        return obj.to_dict(include_all=include_all)
-                    else:
-                        return obj
-
-                res[attr] = recursive_map(val, f)
-
-        return res
 
     def to_kwargs(self, include_all=False):
         """
@@ -509,11 +474,10 @@ class Spec(object):
         if not isinstance(spec_type, dict) and not isinstance(spec_type, basestring):
             raise ValueError("Invalid type for spec_type")
 
-        if (
-                isinstance(spec_type, dict) or
-                ':' in spec_type or
-                '.' in spec_type
-        ):
+        if (isinstance(spec_type, dict) or
+                    ':' in spec_type or
+                    '.' in spec_type):
+
             cls = obj_from_path(spec_type)
             assert issubclass(cls, Spec), "The provided path does not point to an Spec subclass"
             return cls
@@ -560,6 +524,50 @@ class Spec(object):
     def __ne__(self, other):
         return self.key != other.key
 
+    def to_dict(self, include_all=False):
+        """
+        :param include_toggles: Wether to include or not toggle_fields, default=False
+        """
+        import_path = get_import_path(type(self))
+        if inspect.getmodule(type(self)).__name__ == '__main__':
+            warnings.warn(
+                """
+                The module of {} is __main__.
+                It's likely that you are not going to be able to desserialize this spec
+                """.format(type(self)),
+                MainModuleWarning
+            )
+
+        res = {'type': import_path}
+
+        for attr, attr_type in self.get_fields():
+            val = getattr(self, attr)
+
+            # Do not consider fields not bound yet
+            if isinstance(val, UnboundField): continue
+
+            if isinstance(attr_type, PrimitiveField) and (attr_type.serialize or include_all):
+                if inspect.isfunction(val) or inspect.isclass(val):
+                    val = 'import {}'.format(get_import_path(val))
+                elif isinstance(val, basestring) and val.startswith('import '):
+                    val = '!!{}'.format(val)
+
+                res[attr] = val
+
+            elif isinstance(attr_type, BaseSpecField) and (include_all or attr_type.serialize):
+                res[attr] = val if val is None else val.to_dict(include_all=include_all)
+
+            elif isinstance(attr_type, SpecCollection) and (include_all or attr_type.serialize):
+                def f(obj):
+                    if isinstance(obj, Spec):
+                        return obj.to_dict(include_all=include_all)
+                    else:
+                        return obj
+
+                res[attr] = recursive_map(val, f)
+
+        return res
+
     @classmethod
     def _from_dict(cls, kwargs, path=None):
         kwargs = kwargs.copy()
@@ -569,10 +577,11 @@ class Spec(object):
         for attr, attr_type in cls.get_fields():
             val = kwargs.get(attr, attr_type.default)
 
-            if (isinstance(attr_type, PrimitiveField) and
-                    isinstance(val, basestring) and
-                    val.startswith('import ')):
-                kwargs[attr] = obj_from_path(val[len('import '):])
+            if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring):
+                if val.startswith('import '):
+                    kwargs[attr] = obj_from_path(val[len('import '):])
+                elif val.startswith('!!import'):
+                    kwargs[attr] = val[2:]
 
             elif isinstance(attr_type, BaseSpecField) and val is not None and attr in kwargs:
                 if isinstance(val, basestring):
@@ -669,6 +678,13 @@ class Spec(object):
     def similarity(self, other):
         if type(self) is not type(other): return 0
         return matching_fields(self.to_dict(), other.to_dict())
+
+
+def is_import_path(obj):
+    try:
+        return obj != obj_from_path(obj)
+    except Exception:
+        return False
 
 
 def get_import_path(obj, *attrs):
