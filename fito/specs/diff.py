@@ -105,10 +105,14 @@ class Diff(Spec):
         if self.changed_fields:
             if res.len > 0: res.write('\n\n')
             res.write('Changed fields:\n')
-            res.write('\t{:<20} {:<20} {:<20}'.format('field', 'from value', 'to value'))
+            res.write('\t{:<20} {:<50} {:<50}'.format('field', 'from value', 'to value'))
             for field, field_change in self.changed_fields.iteritems():
-                res.write('{}{:<20} {:<20} {:<20}'.format(join_template, field, field_change.original_value,
-                                                          field_change.new_value))
+                res.write('{}{:<20} {:<50} {:<50}'.format(
+                    join_template,
+                    field,
+                    repr(field_change.original_value),
+                    repr(field_change.new_value))
+                )
 
         return res.getvalue()
 
