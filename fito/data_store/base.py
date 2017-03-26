@@ -39,7 +39,7 @@ class BaseDataStore(OperationRunner):
         Gets an operation from this data store.
         If you provide a string, it is assumed to be a `Get`
         """
-        if self.get_cache is None:
+        def _get():
             try:
                 return self._get(spec)
             except KeyError, e:
@@ -48,11 +48,14 @@ class BaseDataStore(OperationRunner):
                     return self.get(spec)
                 else:
                     raise e
+
+        if self.get_cache is None:
+            return _get()
         else:
             try:
                 return self.get_cache[spec]
             except KeyError:
-                res = self._get(spec)
+                res = _get()
                 self.get_cache.set(spec, res)
                 return res
 
@@ -181,3 +184,4 @@ class AutosavedFunction(as_operation):
                 return self.cache_on.execute(AutosavedOperation(*args, **kwargs))
 
         return FunctionWrapper()
+
