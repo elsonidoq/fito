@@ -679,6 +679,14 @@ class Spec(object):
         if type(self) is not type(other): return 0
         return matching_fields(self.to_dict(), other.to_dict())
 
+    def diff(self, other):
+        """
+        Returns a diff that when applied to other returns self
+        """
+        # Lazy import to avoid dependency loops
+        from fito.specs.diff import Diff
+        return Diff.build(other.to_dict(), self.to_dict())
+
 
 def is_import_path(obj):
     try:
