@@ -461,7 +461,10 @@ class Spec(object):
         args = tuple()
 
         for attr, attr_type in cls.get_fields():
-            val = kwargs.get(attr, attr_type.default)
+            if attr_type.has_default_value():
+                val = kwargs.get(attr, attr_type.default)
+            else:
+                val = kwargs[attr]
 
             if (isinstance(attr_type, PrimitiveField) and
                     isinstance(val, basestring) and
