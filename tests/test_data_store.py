@@ -166,6 +166,14 @@ class TestDataStore(unittest.TestCase):
                 best_match, score = matching[0]
                 assert (best_match == add_op) == (add_op in ds)
 
+    def test_get_by_id(self):
+        assert False
+        # should test that everything can be converted to id
+        # should test that everything can be saved / read using the id
+
+    def test_everything_can_be_accessed_using_dict(self):
+        assert False
+        # Same as test_get_by_id
 
 def func(i):
     return i
