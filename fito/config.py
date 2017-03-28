@@ -8,4 +8,4 @@ def read_bool(key, default=False):
     return res == 'true' or res == '1'
 
 
-auto_refactor = read_bool('AUTO_REFACTOR')
+interactive_rehash = read_bool('FITO_IR')
