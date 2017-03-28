@@ -373,7 +373,7 @@ class Spec(object):
 
     @memoized_property
     def key(self):
-        return '/%s' % json.dumps(self.__dict2key(self.to_dict(include_all=False)))
+        return self._dict2key(self.to_dict(include_all=False))
 
     def __setattr__(self, key, value):
         # invalidate key cache if you change the object
@@ -630,14 +630,14 @@ class Spec(object):
         return cls(*args, **kwargs)
 
     @classmethod
-    def __dict2key(cls, d):
+    def _dict2key(cls, d):
         d = d.copy()
         for k, v in d.iteritems():
             if isinstance(v, dict):
-                d[k] = cls.__dict2key(v)
+                d[k] = cls._dict2key(v)
 
         # TODO que devuelva algo que no es un diccionario
-        return {'transformed': True, 'dict': sorted(d.iteritems(), key=lambda x: x[0])}
+        return json.dumps({'transformed': True, 'dict': sorted(d.iteritems(), key=lambda x: x[0])})
 
     @classmethod
     def key2dict(cls, str):
