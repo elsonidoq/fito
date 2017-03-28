@@ -29,14 +29,14 @@ class Diff(Spec):
 
             old_v = old_dict[k]
             new_v = new_dict[k]
+            # TODO this fails if a param starts being a spec, or a param stops being a spec
             if (isinstance(old_v, dict)
                 and 'type' in old_v
                 and isinstance(new_v, dict)
                 and 'type' in new_v
                 and old_v != new_v
             ):
-                # TODO this fails if a param starts being a spec, or a param stops being a spec
-                # i.e. old_v and new_v refer to specs
+                # old_v and new_v refer to specs
 
                 if field is None:
                     subdiff_field = k
