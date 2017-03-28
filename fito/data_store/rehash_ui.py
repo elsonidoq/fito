@@ -1,10 +1,10 @@
 from cmd2 import Cmd
-from fito import DictDataStore, Operation
-from test_spec import get_test_specs, SpecA
+from fito import Operation
 
 
-class RehashCommand(Cmd):
-    prompt = "fito> "
+class RehashUI(Cmd):
+    prompt = "rehash> "
+    user_quit = False
 
     def __init__(self, data_store, spec):
         Cmd.__init__(self)
@@ -14,12 +14,15 @@ class RehashCommand(Cmd):
         assert spec not in data_store
         self.print_header()
         self.similar_specs = data_store.find_similar(spec)
+        print
+        print self.colorize("Similar specs", 'green')
+        self.do_print('similar_specs')
 
     def print_header(self):
+        print '{} was not found in {}\n'.format(self.colorize('Spec', 'green'), self.colorize('Data store', 'green'))
         print
         print '{:<30}{}'.format(self.colorize('Spec:', 'green'), self.spec)
-        print '{:<30}{}'.format(self.colorize('Data store:', 'green'), self.data_store)
-        print '{} was not found in {}'.format(self.colorize('Spec', 'green'), self.colorize('Data store', 'green'))
+        print '{:<30}{}\n'.format(self.colorize('Data store:', 'green'), self.data_store)
 
     def do_print(self, thing):
         """
@@ -64,7 +67,7 @@ class RehashCommand(Cmd):
             return False
         return True
 
-    def rehash(self, action, position):
+    def do_rehash(self, action, position):
         assert action in 'copy move'.split()
         if not self.is_valid_position(position): return
 
@@ -81,7 +84,7 @@ class RehashCommand(Cmd):
             self.data_store.remove(target_spec)
 
         print self.colorize('Done!', 'green')
-        return self.do_quit()
+        return self.do_end()
 
     def do_diff(self, position):
         if not self.is_valid_position(position): return
@@ -95,26 +98,29 @@ class RehashCommand(Cmd):
         Copies the contents of spec refered by `position` to self.data_store[self.spec]
         Execute `print similar_specs` to see candidates
         """
-        self.rehash('copy', position)
+        return self.do_rehash('copy', position)
 
     def do_move(self, position):
         """
         Moves the contents of spec refered by `position` to self.data_store[self.spec]
         Execute `print similar_specs` to see candidates
         """
-        self.rehash('move', position)
+        return self.do_rehash('move', position)
 
     def do_quit(self, arg=None):
         print "Quitting..."
+        RehashUI.user_quit = True
         return Cmd.do_quit(self, arg)
 
+    def do_end(self, arg=None):
+        print "Quitting..."
+        return Cmd.do_quit(self, arg)
 
-def main():
-    data_store = DictDataStore()
-    for spec in get_test_specs(easy=True):
-        data_store[spec] = 1
+    def cmdloop(self, intro=None):
+        if RehashUI.user_quit:
+            raise Quit()
+        else:
+            Cmd.cmdloop(self, intro)
 
-    RehashCommand(data_store, SpecA(1)).cmdloop()
 
-
-if __name__ == '__main__': main()
+class Quit(Exception): pass
