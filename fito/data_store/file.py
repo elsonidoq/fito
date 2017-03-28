@@ -11,6 +11,7 @@ import yaml
 from fito import PrimitiveField
 from fito import Spec
 from fito import SpecField
+from fito import config
 from fito.data_store.base import BaseDataStore
 
 
@@ -142,9 +143,8 @@ class FileDataStore(BaseDataStore):
 
                 yield spec
 
-    def get_by_id(self, subdir):
-        assert subdir.startswith(self.path)
-        return self.serializer.load(subdir)
+    def get_id(self, spec):
+        return self.get_dir_for_saving(spec, create=False)
 
     def iteritems(self):
         for op in self.iterkeys():
@@ -155,7 +155,8 @@ class FileDataStore(BaseDataStore):
                 continue
 
     def _get_dir(self, spec):
-        h = str(mmh3.hash(spec.key))
+        key = self.get_key(spec)
+        h = str(mmh3.hash(key))
         path = os.path.join(self.path, type(spec).__name__) if self.use_class_name else self.path
 
         if self.split_keys:
@@ -182,28 +183,36 @@ class FileDataStore(BaseDataStore):
                 sleep(0.1)
                 with open(key_fname) as f:
                     key = f.read()
-            if key == spec.key and self.serializer.exists(subdir): break
+            if key == self.get_key(spec) and self.serializer.exists(subdir): break
         else:
             raise KeyError("Spec not found")
 
         return subdir
 
     def _get(self, spec):
-        subdir = self._get_subdir(spec)
-        try:
+        if isinstance(spec, basestring):
+            # assume that spec is the output of self.get_id
+            subdir = spec
+            assert subdir.startswith(self.path)
             return self.serializer.load(subdir)
-        except Exception:
-            traceback.print_exc()
-            raise KeyError('Failed to load spec')
+        else:
+            subdir = self._get_subdir(spec)
+            try:
+                return self.serializer.load(subdir)
+            except Exception:
+                traceback.print_exc()
+                raise KeyError('Failed to load spec')
 
-    def get_dir_for_saving(self, spec):
+    def get_dir_for_saving(self, spec, create=True):
         dir = self._get_dir(spec)
-        # this accounts for both checking if it not exists, and the fact that there might
-        # be another process doing the same thing
-        try:
-            os.makedirs(dir)
-        except OSError:
-            pass
+        if create:
+            # this accounts for both checking if it not exists, and the fact that there might
+            # be another process doing the same thing
+            try:
+                os.makedirs(dir)
+            except OSError:
+                pass
+
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
             key_fname = os.path.join(subdir, 'key')
@@ -215,23 +224,32 @@ class FileDataStore(BaseDataStore):
         else:
             while True:
                 subdirs = map(int, os.listdir(dir))
-                if len(subdirs) == 0:
+                if len(subdirs) == 0 and create:
                     subdir = '0'
+                elif not create:
+                    raise KeyError()
                 else:
                     subdir = str(max(subdirs) + 1)
+
                 subdir = os.path.join(dir, subdir)
-                try:
-                    os.makedirs(subdir)
-                    return subdir
-                except OSError:
-                    pass
+                if create:
+                    try:
+                        os.makedirs(subdir)
+                    except OSError:
+                        pass
+                return subdir
 
     def save(self, spec, obj):
-        subdir = self.get_dir_for_saving(spec)
+        if isinstance(spec, basestring):
+            assert spec.startswith(self.path + '/') # security check ;)
+            subdir = spec
+        else:
+            subdir = self.get_dir_for_saving(spec)
+
         key_fname = os.path.join(subdir, 'key')
         try:
             with open(key_fname, 'w') as f:
-                f.write(spec.key)
+                f.write(self.get_key(spec))
 
             self.serializer.save(obj, subdir)
         except Exception, e:
@@ -244,6 +262,10 @@ class FileDataStore(BaseDataStore):
             subdir = self._get_subdir(spec)
             return self.serializer.exists(subdir)
         except KeyError:
+            if config.interactive_rehash:
+                self.interactive_rehash(spec)
+                return self.get(spec)
+
             return False
 
     def is_empty(self):

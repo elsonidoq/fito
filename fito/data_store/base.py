@@ -1,8 +1,9 @@
-from fito.config import auto_refactor
+from fito import config
 import warnings
 from functools import wraps
 
 from fito import Spec
+from fito.data_store.rehash_ui import RehashUI
 from fito.operation_runner import FifoCache, OperationRunner
 from fito.operations.decorate import as_operation
 from fito.specs.base import get_import_path
@@ -34,6 +35,14 @@ class BaseDataStore(OperationRunner):
         else:
             self.get_cache = None
 
+    @classmethod
+    def get_key(cls, spec):
+        if isinstance(spec, Spec):
+            return spec.key
+        else:
+            assert isinstance(spec, dict)
+            return Spec._dict2key(spec)
+
     def get(self, spec):
         """
         Gets an operation from this data store.
@@ -43,8 +52,8 @@ class BaseDataStore(OperationRunner):
             try:
                 return self._get(spec)
             except KeyError, e:
-                if auto_refactor:
-                    self.interactive_refactor(spec)
+                if config.interactive_rehash:
+                    self.interactive_rehash(spec)
                     return self.get(spec)
                 else:
                     raise e
@@ -65,9 +74,9 @@ class BaseDataStore(OperationRunner):
         """
         raise NotImplementedError()
 
-    def get_by_id(self, id):
+    def get_id(self, spec):
         """
-        Fetches the value given some id. The id is implementation specific
+        Get's the internal id of a given spec, it should raise KeyError if spec not in self
         """
         raise NotImplementedError()
 
@@ -104,6 +113,7 @@ class BaseDataStore(OperationRunner):
             return None
 
     def __contains__(self, spec):
+        import ipdb;ipdb.set_trace()
         return self.get_or_none(spec) is not None
 
     def autosave(self, *args, **kwargs):
@@ -125,30 +135,35 @@ class BaseDataStore(OperationRunner):
 
     def find_similar(self, spec):
         res = []
-        for _, other_spec_dict in self.iterkeys(raw=True):
+        for id, other_spec_dict in self.iterkeys(raw=True):
+            other_spec = None
             try:
                 other_spec = Spec.dict2spec(other_spec_dict)
                 similarity = other_spec.similarity(spec)
             except:
                 spec_dict = spec.to_dict()
-                if other_spec['type'] != spec_dict['type']:
+                if other_spec_dict['type'] != spec_dict['type']:
                     similarity = 0
                 else:
-                    similarity = matching_fields(spec_dict, other_spec)
+                    similarity = matching_fields(spec_dict, other_spec_dict)
 
             if similarity > 0:
-                res.append((other_spec, similarity))
+                if other_spec is not None:
+                    res.append((other_spec, similarity))
+                else:
+                    res.append((other_spec_dict, similarity))
 
         res.sort(key=lambda x: -x[1])
 
         return res
 
-    def interactive_refactor(self, spec):
-        similar = self.find_similar(spec)
-
-        # print "Found "
-        # for other_spec_or_dict, score in similar:
-
+    def interactive_rehash(self, spec):
+        if self.find_similar(spec):
+            # Disable interactive rehash functionality
+            # This is obviously not thread safe
+            config.interactive_rehash = False
+            RehashUI(data_store=self, spec=spec).cmdloop()
+            config.interactive_rehash = True
 
 
 class AutosavedFunction(as_operation):

@@ -1,3 +1,4 @@
+from fito import Spec
 from fito.data_store.base import BaseDataStore
 from fito.specs import base
 
@@ -14,6 +15,10 @@ class DictDataStore(BaseDataStore):
         self.data[spec] = object
 
     def _get(self, spec):
+        if isinstance(spec, dict):
+            # assume that if spec is a dictionary, then must be loadable
+            spec = Spec.dict2spec(spec)
+
         if spec not in self.data: raise KeyError("Spec not found: {}".format(spec))
         return self.data.get(spec)
 
@@ -27,5 +32,5 @@ class DictDataStore(BaseDataStore):
     def clean(self):
         self.data = {}
 
-    def get_by_id(self, spec):
-        return self._get(spec)
+    def get_id(self, spec):
+        return spec
