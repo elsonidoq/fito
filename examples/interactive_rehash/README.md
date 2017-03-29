@@ -28,8 +28,8 @@ If you run your script like this:
 
 You enter into the interactive rehash mode and all caches misses trigger the rehash commandline interface
 
-These examples shows you how:
-- You should first need to run
+I suggest you take a look into both `first_experiment.py` and `second_experiment.py` before executing them.
+Then I suggest just running `run_me.sh`
 
 P.S.: As of this readme, the feature is just finished, the diff functionality is very tested,
 but that's not the case for the UI.
