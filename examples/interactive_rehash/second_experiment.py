@@ -1,5 +1,5 @@
 # Now you realized that you need a new hyperparameter
-# Luckily there's a default value for that parameter that generates the same behaviour as before
+# Luckily there's a value for that parameter that generates the same behaviour as before
 # so you don't want to loose your cached computations
 
 from fito import Operation
@@ -10,11 +10,11 @@ from fito.specs.fields import NumericField
 # So you code your experiment class that runs depending on some parameter
 class Experiment(Operation):
     some_parameter = NumericField(0)
-    new_parameter = NumericField(1, default=2)
+    new_parameter = NumericField(1)
 
     def apply(self, runner):
         print "Running Experiment({})...".format(self.some_parameter)
-        # new_parameter's default value is two, like in the previous experiment
+        # new_parameter's value == 2 reproduces previous experiment
         return self.some_parameter * self.new_parameter
 
     def __repr__(self):
