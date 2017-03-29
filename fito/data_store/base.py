@@ -52,7 +52,8 @@ class BaseDataStore(OperationRunner):
             try:
                 return self._get(spec)
             except KeyError, e:
-                if config.interactive_rehash:
+                # TODO: I don't like puting RehashUI.ignored_specs here
+                if config.interactive_rehash and spec not in RehashUI.ignored_specs:
                     self.interactive_rehash(spec)
                     return self.get(spec)
                 else:
@@ -113,7 +114,6 @@ class BaseDataStore(OperationRunner):
             return None
 
     def __contains__(self, spec):
-        import ipdb;ipdb.set_trace()
         return self.get_or_none(spec) is not None
 
     def autosave(self, *args, **kwargs):

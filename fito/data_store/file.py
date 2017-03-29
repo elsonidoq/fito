@@ -13,6 +13,7 @@ from fito import Spec
 from fito import SpecField
 from fito import config
 from fito.data_store.base import BaseDataStore
+from fito.data_store.rehash_ui import RehashUI
 
 
 class Serializer(Spec):
@@ -262,11 +263,11 @@ class FileDataStore(BaseDataStore):
             subdir = self._get_subdir(spec)
             return self.serializer.exists(subdir)
         except KeyError:
-            if config.interactive_rehash:
+            if config.interactive_rehash and spec not in RehashUI.ignored_specs:
                 self.interactive_rehash(spec)
-                return self.get(spec)
-
-            return False
+                return spec in self
+            else:
+                return False
 
     def is_empty(self):
         try:

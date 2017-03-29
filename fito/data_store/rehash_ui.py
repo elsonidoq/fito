@@ -5,6 +5,7 @@ from fito import Operation
 class RehashUI(Cmd):
     prompt = "rehash> "
     user_quit = False
+    ignored_specs = set()
 
     def __init__(self, data_store, spec):
         Cmd.__init__(self)
@@ -114,6 +115,11 @@ class RehashUI(Cmd):
 
     def do_end(self, arg=None):
         print "Quitting..."
+        return Cmd.do_quit(self, arg)
+
+    def do_ignore(self, arg=None):
+        print "Ignoring {}".format(self.spec)
+        RehashUI.ignored_specs.add(self.spec)
         return Cmd.do_quit(self, arg)
 
     def cmdloop(self, intro=None):
