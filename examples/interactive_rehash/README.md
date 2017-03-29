@@ -15,6 +15,7 @@ After having performed some runs, you decide that you want to either:
 - incorporate a hyper-parameter
 - test an alternative to some step
 - change a default value of some strategy
+- or just changing the name of a parameter
 
 The minute you perform those changes your all your previous tests stop hashing to the same bucket.
 That's almost equivalent to having deleted everything you have being computing up to now.
