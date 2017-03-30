@@ -135,22 +135,15 @@ class BaseDataStore(OperationRunner):
 
     def find_similar(self, spec):
         res = []
+        spec_dict = spec.to_dict()
         for id, other_spec_dict in self.iterkeys(raw=True):
-            other_spec = None
-            try:
-                other_spec = Spec.dict2spec(other_spec_dict)
-                similarity = other_spec.similarity(spec)
-            except:
-                spec_dict = spec.to_dict()
-                if other_spec_dict['type'] != spec_dict['type']:
-                    similarity = 0
-                else:
-                    similarity = matching_fields(spec_dict, other_spec_dict)
+            similarity = matching_fields(spec_dict, other_spec_dict)
 
             if similarity > 0:
-                if other_spec is not None:
-                    res.append((other_spec, similarity))
-                else:
+                try:
+                    res.append((Spec.dict2spec(other_spec_dict), similarity))
+                except:
+                    # TODO: improve how exceptions are risen
                     res.append((other_spec_dict, similarity))
 
         res.sort(key=lambda x: -x[1])
