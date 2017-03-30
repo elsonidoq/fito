@@ -1,5 +1,6 @@
 from StringIO import StringIO
 
+from cmd2 import Cmd
 from fito import Spec
 from fito.data_store.refactor import StorageRefactor, ChainedRefactor
 from fito.specs.fields import CollectionField, SpecCollection, PrimitiveField
@@ -79,6 +80,9 @@ class Diff(Spec):
         return res
 
     def __repr__(self):
+        def colorize(str, color):
+            return Cmd.colorcodes[color][True] + str + Cmd.colorcodes[color][False]
+
         res = StringIO()
         if self.field is None:
             template = '{}:\n\t{}'
@@ -91,7 +95,7 @@ class Diff(Spec):
         if self.added_fields:
             res.write(
                 template.format(
-                    'Added fields',
+                    colorize('Added fields', 'green'),
                     join_template.join(
                         '{}:\t{}'.format(k, v) for k, v in self.added_fields.iteritems()
                     )
@@ -100,14 +104,17 @@ class Diff(Spec):
 
         if self.removed_fields:
             if res.len > 0: res.write('\n\n')
-            res.write(template.format('Removed fields', join_template.join(self.removed_fields)))
+            res.write(template.format(
+                colorize('Removed fields', 'red'),
+                join_template.join(self.removed_fields))
+            )
 
         if self.changed_fields:
             if res.len > 0: res.write('\n\n')
-            res.write('Changed fields:\n')
-            res.write('\t{:<20} {:<50} {:<50}'.format('field', 'from value', 'to value'))
+            res.write('{}:\n'.format(colorize('Changed fields', 'yellow')))
+            res.write('\t{:<15} {:<45} {:<45}'.format('field', 'from value', 'to value'))
             for field, field_change in self.changed_fields.iteritems():
-                res.write('{}{:<20} {:<50} {:<50}'.format(
+                res.write('{}{:<15} {:<45} {:<45}'.format(
                     join_template,
                     field,
                     repr(field_change.original_value),
