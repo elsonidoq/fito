@@ -9,11 +9,8 @@ class Experiment(Operation):
     some_parameter = NumericField(0)
 
     def apply(self, runner):
-        print "Running Experiment({})...".format(self.some_parameter)
+        print "Running {}...".format(self)
         return self.some_parameter * 2
-
-    def __repr__(self):
-        return 'Experiment({})'.format(self.some_parameter)
 
 
 def perform_some_runs(data_store, experiments):

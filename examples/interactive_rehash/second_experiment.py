@@ -17,9 +17,6 @@ class Experiment(Operation):
         # new_parameter's value == 2 reproduces previous experiment
         return self.some_parameter * self.new_parameter
 
-    def __repr__(self):
-        return 'Experiment({}, {})'.format(self.some_parameter, self.new_parameter)
-
 # Don't want to rewrite that code
 from first_experiment import perform_some_runs
 
