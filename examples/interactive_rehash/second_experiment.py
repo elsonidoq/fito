@@ -13,7 +13,7 @@ class Experiment(Operation):
     new_parameter = NumericField(1)
 
     def apply(self, runner):
-        print "Running Experiment({})...".format(self.some_parameter)
+        print "Running {}...".format(self)
         # new_parameter's value == 2 reproduces previous experiment
         return self.some_parameter * self.new_parameter
 
