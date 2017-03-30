@@ -1,5 +1,7 @@
 from cmd2 import Cmd
 from fito import Operation
+from fito import Spec
+from fito.specs.diff import Diff
 
 
 class RehashUI(Cmd):
@@ -92,7 +94,10 @@ class RehashUI(Cmd):
         position = int(position) - 1
         target_spec, _ = self.similar_specs[position]
 
-        print self.spec.diff(target_spec)
+        target_spec_dict = target_spec.to_dict() if isinstance(target_spec, Spec) else target_spec
+        print
+        print Diff.build(self.spec.to_dict(), target_spec_dict)
+        print
 
     def do_copy(self, position):
         """
