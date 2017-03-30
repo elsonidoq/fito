@@ -4,6 +4,7 @@ import json
 import os
 import traceback
 import warnings
+from collections import OrderedDict
 from functools import partial
 from functools import total_ordering
 from itertools import chain
@@ -686,6 +687,27 @@ class Spec(object):
         # Lazy import to avoid dependency loops
         from fito.specs.diff import Diff
         return Diff.build(other.to_dict(), self.to_dict())
+
+    def __repr__(self):
+        signature = list(self.get_fields())
+        signature.sort(key=lambda x: x[1].pos or len(signature))
+
+        fields = OrderedDict()
+        for field_name, field_spec in signature:
+            val = getattr(self, field_name)
+            # Do not print default values
+            if val == field_spec.default: continue
+
+            if isinstance(field_spec, BaseSpecField) and val is not None:
+                fields[field_name] = field_spec.base_type.__name__
+            else:
+                if isinstance(val, basestring): val = "'{}'".format(val)
+                fields[field_name] = val
+
+        return '{}({})'.format(
+            type(self).__name__,
+            ', '.join('{}={}'.format(*i) for i in fields.iteritems())
+        )
 
 
 def is_import_path(obj):
