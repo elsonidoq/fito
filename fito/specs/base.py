@@ -517,7 +517,7 @@ class Spec(object):
         return hash(self.key)
 
     def __eq__(self, other):
-        return self.key == other.key
+        return isinstance(other, type(self)) and self.key == other.key
 
     def __lt__(self, other):
         return self.key < other.key
@@ -697,8 +697,8 @@ class Spec(object):
             # Do not print default values
             if val == field_spec.default: continue
 
-            if isinstance(field_spec, BaseSpecField) and val is not None:
-                fields[field_name] = field_spec.base_type.__name__
+            if isinstance(field_spec, BaseSpecField):
+                fields[field_name] = '{}(...)'.format(type(val).__name__)
             else:
                 if isinstance(val, basestring): val = "'{}'".format(val)
                 fields[field_name] = val
