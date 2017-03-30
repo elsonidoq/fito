@@ -677,7 +677,6 @@ class Spec(object):
         return res
 
     def similarity(self, other):
-        if type(self) is not type(other): return 0
         return matching_fields(self.to_dict(), other.to_dict())
 
     def diff(self, other):
