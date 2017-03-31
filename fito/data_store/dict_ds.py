@@ -33,4 +33,9 @@ class DictDataStore(BaseDataStore):
         self.data = {}
 
     def get_id(self, spec):
+        if spec not in self: raise KeyError(spec)
         return spec
+
+    def remove(self, spec):
+        self.data.pop(spec)
+
