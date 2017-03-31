@@ -25,7 +25,7 @@ def get_test_data_stores():
     base_mongo_collection = get_collection(global_client, 'test.test')
     base_mongo_collection.drop()
 
-    return [
+    res = [
         dict_ds.DictDataStore(),
 
         mongo.MongoHashMap(base_mongo_collection),
@@ -39,6 +39,10 @@ def get_test_data_stores():
         file.FileDataStore(file_data_store_preffix + '_dont_split_keys', split_keys=False),
         file.FileDataStore(file_data_store_preffix + '_use_class_name', use_class_name=True),
     ]
+
+    clean_data_stores(res)
+
+    return res
 
 
 def clean_data_stores(data_stores):
@@ -149,15 +153,25 @@ class TestDataStore(unittest.TestCase):
         add_operations = [
             e for e in self.rnd.sample(self.indexed_operations, 2) + self.rnd.sample(self.not_indexed_specs, 2)
             if isinstance(e, AddOperation)
-        ]
+            ]
 
         for i, ds in enumerate(self.data_stores):
             for j in xrange(5):
                 p = partial(j).bind(1)
                 matching = ds.find_similar(p)
 
+                d_p = p.to_dict()
+
                 for match, score in matching:
-                    expected = (match.a == p.a) + (match.b == p.b) + 1
+                    d_match = match.to_dict()
+
+                    expected = 0
+                    for k, v in d_p.iteritems():
+                        in_match = k in d_match
+                        if in_match:
+                            expected += v == d_match[k]
+                        expected += in_match
+
                     assert score == expected
 
             for add_op in add_operations:
@@ -166,14 +180,31 @@ class TestDataStore(unittest.TestCase):
                 best_match, score = matching[0]
                 assert (best_match == add_op) == (add_op in ds)
 
-    def test_get_by_id(self):
-        assert False
-        # should test that everything can be converted to id
-        # should test that everything can be saved / read using the id
+    def test_remove(self):
+        for ds in self.data_stores:
+            # Copy the keys to avoid errors in DictDataStore
+            for spec in list(ds.iterkeys()):
+                ds.remove(spec)
 
-    def test_everything_can_be_accessed_using_dict(self):
-        assert False
-        # Same as test_get_by_id
+            self.assertRaises(StopIteration, ds.iteritems().next)
+
+    def test_get_by_id(self):
+        for i, ds in enumerate(self.data_stores):
+            for j, (id, doc) in enumerate(ds.iterkeys(raw=True)):
+                # Not gonna perform this test on these kind of specs, I might even remove them in the future
+                if isinstance(doc['type'], basestring) and '@' in doc['type']: continue
+
+                spec = Spec.dict2spec(doc)
+                v = ds[spec]
+                assert ds[id] == v
+                assert ds[doc] == v
+                assert ds[ds.get_id(spec)] == v
+
+            for spec in self.not_indexed_specs:
+                self.assertRaises(KeyError, ds.get_id, spec)
+                ds[spec] = 1
+                assert ds[ds.get_id(spec)] == 1
+
 
 def func(i):
     return i
