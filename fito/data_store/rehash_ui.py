@@ -14,7 +14,6 @@ class RehashUI(Cmd):
         self.data_store = data_store
         self.spec = spec
 
-        assert spec not in data_store
         self.print_header()
         self.similar_specs = data_store.find_similar(spec)
         print
@@ -82,7 +81,7 @@ class RehashUI(Cmd):
             target_spec
         )
 
-        self.data_store[self.spec] = target_spec
+        self.data_store[self.spec] = self.data_store[target_spec]
         if action == 'move':
             self.data_store.remove(target_spec)
 
