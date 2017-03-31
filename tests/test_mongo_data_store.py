@@ -19,13 +19,6 @@ class TestMongoDataStore(unittest.TestCase):
             for spec in self.test_specs:
                 ds[spec] = "asdf"
 
-    def test_delete(self):
-        for ds in self.data_stores:
-            for spec in ds.iterkeys():
-                ds.delete(spec)
-
-            assert len(ds) == 0
-
     def test_choice(self):
         for ds in self.data_stores:
             ds.choice()
