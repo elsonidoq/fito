@@ -632,12 +632,14 @@ class Spec(object):
 
     @classmethod
     def _dict2key(cls, d):
-        d = d.copy()
-        for k, v in d.iteritems():
-            if isinstance(v, dict):
-                d[k] = cls._dict2key(v)
+        def prepare_dict(input):
+            output = input.copy()
+            for k, v in output.iteritems():
+                if isinstance(v, dict):
+                    output[k] = prepare_dict(v)
+            return output
 
-        # TODO que devuelva algo que no es un diccionario
+        d = prepare_dict(d)
         return json.dumps({'transformed': True, 'dict': sorted(d.iteritems(), key=lambda x: x[0])})
 
     @classmethod
@@ -733,7 +735,6 @@ def get_import_path(obj, *attrs):
     mod = inspect.getmodule(obj)
 
     if isinstance(obj, Spec):
-        # TODO: this implies that I assume that the Spec key is enough to describe any Spec
         if len(attrs) == 1:
             res = {
                 'method': attrs[0]
@@ -787,7 +788,6 @@ def obj_from_path(path):
         for attr in attrs:
             res = getattr(res, attr)
         return res
-
 
     else:
         parts = path.split(':')
