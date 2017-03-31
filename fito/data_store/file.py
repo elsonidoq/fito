@@ -145,7 +145,10 @@ class FileDataStore(BaseDataStore):
                 yield spec
 
     def get_id(self, spec):
-        return self.get_dir_for_saving(spec, create=False)
+        try:
+            return self.get_dir_for_saving(spec, create=False)
+        except RuntimeError:
+            raise KeyError(spec)
 
     def iteritems(self):
         for op in self.iterkeys():
@@ -156,9 +159,26 @@ class FileDataStore(BaseDataStore):
                 continue
 
     def _get_dir(self, spec):
+        if self.use_class_name:
+            if isinstance(spec, Spec):
+                type_name = type(spec).__name__
+            else:
+                import_path = spec['type']
+                if isinstance(import_path, dict):
+                    type_name = import_path['method']
+                else:
+                    # TODO: this does not belong here
+                    if '@' in import_path:
+                        raise ValueError("Can not handle operations that are methods of non spec classes")
+
+                    type_name = import_path.split(':')[1].split('.')[-1]
+
+            path = os.path.join(self.path, type_name)
+        else:
+            path = self.path
+
         key = self.get_key(spec)
         h = str(mmh3.hash(key))
-        path = os.path.join(self.path, type(spec).__name__) if self.use_class_name else self.path
 
         if self.split_keys:
             fname = os.path.join(path, h[:3], h[3:6], h[6:])
@@ -206,13 +226,11 @@ class FileDataStore(BaseDataStore):
 
     def get_dir_for_saving(self, spec, create=True):
         dir = self._get_dir(spec)
-        if create:
-            # this accounts for both checking if it not exists, and the fact that there might
-            # be another process doing the same thing
-            try:
+        if not os.path.exists(dir):
+            if create:
                 os.makedirs(dir)
-            except OSError:
-                pass
+            else:
+                raise RuntimeError()
 
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
