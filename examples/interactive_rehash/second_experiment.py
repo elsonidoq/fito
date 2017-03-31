@@ -34,3 +34,6 @@ if __name__ == '__main__':
     experiments = [Experiment(p, q) for p in xrange(3) for q in xrange(2, 4)]
     perform_some_runs(ds, experiments)
 
+    for exp in experiments:
+        print '{}: {}'.format(exp, ds[exp])
+
