@@ -101,6 +101,9 @@ class BaseDataStore(OperationRunner):
         """
         raise NotImplementedError()
 
+    def remove(self, spec):
+        raise NotImplementedError()
+
     def __getitem__(self, spec):
         return self.get(spec)
 
