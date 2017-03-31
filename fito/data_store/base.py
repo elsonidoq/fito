@@ -129,7 +129,7 @@ class BaseDataStore(OperationRunner):
             try:
                 refactored_doc = refactor_operation.bind(doc=doc).execute()
                 spec = Spec.dict2spec(refactored_doc)
-                out_data_store[spec] = self.get_by_id(id)
+                out_data_store[spec] = self[id]
             except Exception, e:
                 if permissive:
                     warnings.warn(' '.join(e.args))
@@ -138,7 +138,7 @@ class BaseDataStore(OperationRunner):
 
     def find_similar(self, spec):
         res = []
-        spec_dict = spec.to_dict()
+        spec_dict = spec.to_dict() if isinstance(spec, Spec) else spec
         for id, other_spec_dict in self.iterkeys(raw=True):
             similarity = matching_fields(spec_dict, other_spec_dict)
 
