@@ -150,7 +150,7 @@ class MongoHashMap(BaseDataStore):
         if projection is not None and 'spec' not in projection:
             projection.append('spec')
 
-        if isinstance(spec, ObjectId):
+        if (isinstance(spec, int) and self.add_incremental_id) or (isinstance(spec, ObjectId) and not self.add_incremental_id):
             return self.coll.find_one({'_id': spec}, projection=projection)
         else:
             op_hash = self._get_op_hash(spec)
