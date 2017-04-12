@@ -1,3 +1,5 @@
+import traceback
+from StringIO import StringIO
 import inspect
 import os
 from random import Random
@@ -5,10 +7,13 @@ import shutil
 import tempfile
 import unittest
 
+import sys
+from fito import Operation
 from fito import Spec
 from fito import as_operation
 from fito.data_store import file, dict_ds, mongo
 from fito.data_store.mongo import get_collection, global_client
+from fito.data_store.rehash_ui import RehashUI
 from test_operation import get_test_operations, partial, AddOperation
 from test_spec import get_test_specs
 
@@ -147,7 +152,7 @@ class TestDataStore(unittest.TestCase):
             if ds.execute_cache is not None:
                 assert len(ds.execute_cache.queue) == 5  # all instances with execute cache have a size == 5
                 for j in xrange(5, 10):
-                    assert autosaved_func.operation_class(j) in ds.execute_cache.queue
+                    assert ds.execute_cache._get_key(autosaved_func.operation_class(j)) in ds.execute_cache.queue
 
     def test_find_similar(self):
         add_operations = [
@@ -204,6 +209,43 @@ class TestDataStore(unittest.TestCase):
                 self.assertRaises(KeyError, ds.get_id, spec)
                 ds[spec] = 1
                 assert ds[ds.get_id(spec)] == 1
+
+    def test_rehash_ui(self):
+        # Avoid all prints of rehash UI
+        stdout = sys.stdout
+        sys.stdout = StringIO()
+
+        for ds_idx, ds in enumerate(self.data_stores):
+            for spec_idx, spec in enumerate([self.not_indexed_specs[0], self.not_indexed_specs[-1]]):
+                try:
+                    rehash_ui = RehashUI(ds, spec)
+
+                    for i in xrange(len(rehash_ui.similar_specs)):
+                        assert rehash_ui.is_valid_position(str(i + 1))
+
+                    rehash_ui.do_move('1')
+                    assert spec in ds
+                    assert rehash_ui.similar_specs[0][0] not in ds
+
+                    rehash_ui.do_copy('4')
+                    assert spec in ds
+                    assert rehash_ui.similar_specs[3][0] in ds
+
+                    rehash_ui.do_diff('3')
+
+                    if isinstance(spec, Operation):
+                        rehash_ui.do_execute()
+                        assert ds[spec] == spec.execute()
+
+                    rehash_ui.do_print('spec')
+                    rehash_ui.do_print('ds')
+                    rehash_ui.do_print('similar_specs')
+                    rehash_ui.do_print('similar_specs')
+                except Exception, e:
+                    # Restore prints and raise exception
+                    sys.stdout = stdout
+                    traceback.print_exc()
+                    raise e
 
 
 def func(i):
