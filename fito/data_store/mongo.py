@@ -1,4 +1,5 @@
 import mmh3
+import warnings
 from random import random
 
 import pymongo
@@ -174,9 +175,13 @@ class MongoHashMap(BaseDataStore):
 
     def save(self, spec, values):
         doc = self._build_doc(spec, values)
+
+        # TODO: This is slow, should be just one mongo operation
+        try: self.remove(spec)
+        except KeyError: pass
         self._insert([doc])
 
-    def remove(self, spec):
+    def _remove(self, spec):
         if self.use_gridfs:
             projection = ['values']
         else:

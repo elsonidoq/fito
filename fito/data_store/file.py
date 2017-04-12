@@ -118,7 +118,7 @@ class FileDataStore(BaseDataStore):
             if cls is None or (cls is not None and isinstance(op, cls)):
                 self.remove(op)
 
-    def remove(self, op):
+    def _remove(self, op):
         subdir = self._get_subdir(op)
         shutil.rmtree(subdir)
 

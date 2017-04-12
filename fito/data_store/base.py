@@ -104,6 +104,18 @@ class BaseDataStore(OperationRunner):
         raise NotImplementedError()
 
     def remove(self, spec):
+        """
+        Removes a spec from a data store. Updates the get_cache is necessary
+        """
+        if self.get_cache is not None:
+            self.get_cache.remove(spec)
+
+        self._remove(spec)
+
+    def _remove(self, spec):
+        """
+        Actual implementation of removal from data store
+        """
         raise NotImplementedError()
 
     def __getitem__(self, spec):

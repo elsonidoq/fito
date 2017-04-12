@@ -36,6 +36,6 @@ class DictDataStore(BaseDataStore):
         if spec not in self: raise KeyError(spec)
         return spec
 
-    def remove(self, spec):
+    def _remove(self, spec):
         self.data.pop(spec)
 
