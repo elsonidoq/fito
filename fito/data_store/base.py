@@ -46,7 +46,6 @@ class BaseDataStore(OperationRunner):
     def get(self, spec):
         """
         Gets an operation from this data store.
-        If you provide a string, it is assumed to be a `Get`
         """
         def _get():
             try:
@@ -54,7 +53,10 @@ class BaseDataStore(OperationRunner):
             except KeyError, e:
                 # TODO: I don't like puting RehashUI.ignored_specs here
                 if config.interactive_rehash and spec not in RehashUI.ignored_specs:
+                    # Interactive rehash has been enabled and this spec has not been processed
+                    # Trigger interactive rehash
                     self.interactive_rehash(spec)
+                    # Retry the get
                     return self.get(spec)
                 else:
                     raise e
