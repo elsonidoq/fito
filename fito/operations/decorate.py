@@ -205,25 +205,9 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
         this_args = self.get_this_args(runner)
         return func_to_execute(**this_args)
 
-    def __repr__(self):
-        this_args = self.get_this_args()
-        args = ['%s=%s' % i for i in this_args.iteritems()]
-        args = [e if len(e) < 20 else e[:17] + '...' for e in args]
-        res = '{}({})'.format(out_name, ', '.join(args))
-
-        if first_arg is not None:
-            if method_type == 'class':
-                first_arg_name = first_arg.__name__
-            else:
-                first_arg_name = type(first_arg).__name__.lower()
-
-            res = '{}.{}'.format(first_arg_name, res)
-        return res
-
     cls_attrs = attrs.copy()
     cls_attrs['func'] = staticmethod(func_to_execute)
     cls_attrs['apply'] = apply
-    cls_attrs['__repr__'] = __repr__
     cls_attrs['get_this_args'] = get_this_args
     cls_attrs['to_dict'] = to_dict
 

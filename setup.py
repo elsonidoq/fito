@@ -16,6 +16,7 @@ setup(
     install_requires=[
         'mmh3',
         'memoized_property',
-        'PyYAML'
+        'PyYAML',
+        'cmd2'
     ],
 )

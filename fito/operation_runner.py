@@ -88,19 +88,33 @@ class FifoCache(object):
         self.queue = OrderedDict()
         self.size = size
 
+    def _get_key(self, spec_or_dict):
+        if isinstance(spec_or_dict, Spec):
+            return spec_or_dict.key
+        elif isinstance(spec_or_dict, dict):
+            return Spec._dict2key(spec_or_dict)
+        else:
+            # assume it's an id
+            return spec_or_dict
+
     def get(self, spec):
-        if spec in self.queue:
+        key = self._get_key(spec)
+        if key in self.queue:
             if self.verbose: print "Fifo hit!"
-            res = self.queue.pop(spec)
-            self.queue[spec] = res
+            res = self.queue.pop(key)
+            self.queue[key] = res
             return res
 
     def set(self, spec, value):
-        self.queue.pop(spec, None)
+        key = self._get_key(spec)
+        self.queue.pop(key, None)
         if len(self.queue) >= self.size:
             if self.verbose: print "Fifo pop!"
             op, _ = self.queue.popitem(False)
-        self.queue[spec] = value
+        self.queue[key] = value
 
     def __getitem__(self, spec):
-        return self.queue[spec]
+        return self.queue[self._get_key(spec)]
+
+    def remove(self, spec):
+        self.queue.pop(self._get_key(spec), None)

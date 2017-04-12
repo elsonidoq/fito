@@ -24,6 +24,8 @@ class MockIterable(object):
 
     def __delslice__(self, _, __): return
 
+    def iteritems(self): return
+
 
 class Field(object):
     """

@@ -11,7 +11,9 @@ import yaml
 from fito import PrimitiveField
 from fito import Spec
 from fito import SpecField
+from fito import config
 from fito.data_store.base import BaseDataStore
+from fito.data_store.rehash_ui import RehashUI
 
 
 class Serializer(Spec):
@@ -116,7 +118,7 @@ class FileDataStore(BaseDataStore):
             if cls is None or (cls is not None and isinstance(op, cls)):
                 self.remove(op)
 
-    def remove(self, op):
+    def _remove(self, op):
         subdir = self._get_subdir(op)
         shutil.rmtree(subdir)
 
@@ -142,9 +144,11 @@ class FileDataStore(BaseDataStore):
 
                 yield spec
 
-    def get_by_id(self, subdir):
-        assert subdir.startswith(self.path)
-        return self.serializer.load(subdir)
+    def get_id(self, spec):
+        try:
+            return self.get_dir_for_saving(spec, create=False)
+        except RuntimeError:
+            raise KeyError(spec)
 
     def iteritems(self):
         for op in self.iterkeys():
@@ -155,8 +159,26 @@ class FileDataStore(BaseDataStore):
                 continue
 
     def _get_dir(self, spec):
-        h = str(mmh3.hash(spec.key))
-        path = os.path.join(self.path, type(spec).__name__) if self.use_class_name else self.path
+        if self.use_class_name:
+            if isinstance(spec, Spec):
+                type_name = type(spec).__name__
+            else:
+                import_path = spec['type']
+                if isinstance(import_path, dict):
+                    type_name = import_path['method']
+                else:
+                    # TODO: this does not belong here
+                    if '@' in import_path:
+                        raise ValueError("Can not handle operations that are methods of non spec classes")
+
+                    type_name = import_path.split(':')[1].split('.')[-1]
+
+            path = os.path.join(self.path, type_name)
+        else:
+            path = self.path
+
+        key = self.get_key(spec)
+        h = str(mmh3.hash(key))
 
         if self.split_keys:
             fname = os.path.join(path, h[:3], h[3:6], h[6:])
@@ -182,28 +204,34 @@ class FileDataStore(BaseDataStore):
                 sleep(0.1)
                 with open(key_fname) as f:
                     key = f.read()
-            if key == spec.key and self.serializer.exists(subdir): break
+            if key == self.get_key(spec) and self.serializer.exists(subdir): break
         else:
             raise KeyError("Spec not found")
 
         return subdir
 
     def _get(self, spec):
-        subdir = self._get_subdir(spec)
-        try:
+        if isinstance(spec, basestring):
+            # assume that spec is the output of self.get_id
+            subdir = spec
+            assert subdir.startswith(self.path)
             return self.serializer.load(subdir)
-        except Exception:
-            traceback.print_exc()
-            raise KeyError('Failed to load spec')
+        else:
+            subdir = self._get_subdir(spec)
+            try:
+                return self.serializer.load(subdir)
+            except Exception:
+                traceback.print_exc()
+                raise KeyError('Failed to load spec')
 
-    def get_dir_for_saving(self, spec):
+    def get_dir_for_saving(self, spec, create=True):
         dir = self._get_dir(spec)
-        # this accounts for both checking if it not exists, and the fact that there might
-        # be another process doing the same thing
-        try:
-            os.makedirs(dir)
-        except OSError:
-            pass
+        if not os.path.exists(dir):
+            if create:
+                os.makedirs(dir)
+            else:
+                raise RuntimeError()
+
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
             key_fname = os.path.join(subdir, 'key')
@@ -215,23 +243,32 @@ class FileDataStore(BaseDataStore):
         else:
             while True:
                 subdirs = map(int, os.listdir(dir))
-                if len(subdirs) == 0:
+                if len(subdirs) == 0 and create:
                     subdir = '0'
+                elif not create:
+                    raise KeyError()
                 else:
                     subdir = str(max(subdirs) + 1)
+
                 subdir = os.path.join(dir, subdir)
-                try:
-                    os.makedirs(subdir)
-                    return subdir
-                except OSError:
-                    pass
+                if create:
+                    try:
+                        os.makedirs(subdir)
+                    except OSError:
+                        pass
+                return subdir
 
     def save(self, spec, obj):
-        subdir = self.get_dir_for_saving(spec)
+        if isinstance(spec, basestring):
+            assert spec.startswith(self.path + '/') # security check ;)
+            subdir = spec
+        else:
+            subdir = self.get_dir_for_saving(spec)
+
         key_fname = os.path.join(subdir, 'key')
         try:
             with open(key_fname, 'w') as f:
-                f.write(spec.key)
+                f.write(self.get_key(spec))
 
             self.serializer.save(obj, subdir)
         except Exception, e:
@@ -244,7 +281,11 @@ class FileDataStore(BaseDataStore):
             subdir = self._get_subdir(spec)
             return self.serializer.exists(subdir)
         except KeyError:
-            return False
+            if config.interactive_rehash and spec not in RehashUI.ignored_specs:
+                self.interactive_rehash(spec)
+                return spec in self
+            else:
+                return False
 
     def is_empty(self):
         try:
