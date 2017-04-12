@@ -63,9 +63,9 @@ class RehashUI(Cmd):
             self.data_store[self.spec] = self.spec.execute()
 
     def is_valid_position(self, position, show_message=True):
-        if not position.isdigit() or int(position) > 10 or int(position) < 1:
+        if not position.isdigit() or int(position) > len(self.similar_specs) or int(position) < 1:
             if show_message:
-                print "Invalid value for position '{}'. Expected an integer between 1 and 10".format(position)
+                print "Invalid value for position '{}'. Expected an integer between 1 and {}".format(position, len(self.similar_specs))
             return False
         return True
 
