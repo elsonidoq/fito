@@ -1,7 +1,9 @@
 import mmh3
+import warnings
 from random import random
 
 import pymongo
+from bson import ObjectId
 from fito import PrimitiveField
 from fito import SpecField
 from fito.data_store.base import BaseDataStore
@@ -77,11 +79,18 @@ class MongoHashMap(BaseDataStore):
 
     @classmethod
     def _get_op_hash(cls, spec):
-        op_hash = mmh3.hash(spec.key)
+        op_hash = mmh3.hash(cls.get_key(spec))
         return op_hash
 
     def _build_doc(self, spec, value):
-        doc = {'spec': spec.to_dict(), 'values': value}
+        if isinstance(spec, ObjectId):
+            spec_dict = self._get_doc(spec, projection=['spec'])['spec']
+        elif isinstance(spec, dict):
+            spec_dict = spec
+        else:
+            spec_dict = spec.to_dict()
+
+        doc = {'spec': spec_dict, 'values': value}
         op_hash = self._get_op_hash(spec)
         doc['op_hash'] = op_hash
         doc['rnd'] = random()
@@ -142,30 +151,37 @@ class MongoHashMap(BaseDataStore):
         if projection is not None and 'spec' not in projection:
             projection.append('spec')
 
-        op_hash = self._get_op_hash(spec)
-        for doc in self.coll.find({'op_hash': op_hash}, projection=projection):
-            # I do not compare the dictionaries, because when there's a nan involved, the comparision is always false
-            if self._dict2spec(doc['spec']) == spec: break
+        if (isinstance(spec, int) and self.add_incremental_id) or (isinstance(spec, ObjectId) and not self.add_incremental_id):
+            return self.coll.find_one({'_id': spec}, projection=projection)
         else:
-            raise KeyError("Spec not found")
+            op_hash = self._get_op_hash(spec)
+            for doc in self.coll.find({'op_hash': op_hash}, projection=projection):
+                other_spec_dict = doc['spec']
+                if isinstance(spec, dict) and other_spec_dict == spec:
+                    break
+                elif self._dict2spec(other_spec_dict) == spec:
+                    break
+            else:
+                raise KeyError("Spec not found")
 
-        return doc
+            return doc
 
     def _get(self, spec):
         doc = self._get_doc(spec)
         return self._parse_doc(doc)[1]
 
-    def get_by_id(self, id):
-        doc = self.coll.find_one({'_id': id})
-        return self._parse_doc(doc)[1]
-
-
+    def get_id(self, spec):
+        return self._get_doc(spec, projection=[])['_id']
 
     def save(self, spec, values):
         doc = self._build_doc(spec, values)
+
+        # TODO: This is slow, should be just one mongo operation
+        try: self.remove(spec)
+        except KeyError: pass
         self._insert([doc])
 
-    def delete(self, spec):
+    def _remove(self, spec):
         if self.use_gridfs:
             projection = ['values']
         else:
@@ -199,27 +215,3 @@ class MongoHashMap(BaseDataStore):
         if len(res) == 1:
             res = res[0]
         return res
-
-    # def _build_mongo_query(self, q):
-    #     res = {}
-    #     for k, v in q.iteritems():
-    #         if isinstance(v, list):
-    #             new_v = []
-    #             for e in v:
-    #                 new_v.append(e)
-    #             v = new_v
-    #
-    #         if not k.startswith('$'): k = 'spec.%s' % k
-    #         res[k] = v
-    #     return res
-    #
-    # def search(self, query):
-    #     query_dict = self._build_mongo_query(query.dict)
-    #
-    #     for doc in self.coll.find(query_dict, no_cursor_timeout=False):
-    #         spec, series = self._parse_doc(doc)
-    #         yield spec, series
-    #
-    # def create_index_for_query(self, query):
-    #     index = [('spec.%s' % k, pymongo.ASCENDING) for k in query.dict.keys()]
-    #     self.coll.create_index(index)

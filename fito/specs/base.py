@@ -4,13 +4,14 @@ import json
 import os
 import traceback
 import warnings
+from collections import OrderedDict
 from functools import partial
 from functools import total_ordering
 from itertools import chain
 
 from fito.specs.fields import KwargsField, ArgsField, Field, BaseSpecField, SpecCollection, UnboundField, \
     PrimitiveField
-from fito.specs.utils import recursive_map, is_iterable
+from fito.specs.utils import recursive_map, is_iterable, matching_fields
 from memoized_property import memoized_property
 
 try:
@@ -69,6 +70,7 @@ class InvalidSpecInstance(Exception):
 
 class MainModuleWarning(UserWarning): pass
 
+
 warnings.filterwarnings('once', '.*', MainModuleWarning, __name__)
 
 
@@ -90,16 +92,21 @@ class SpecMeta(type):
                 "Received a weird module path ({}). This seems to happen when ".format(repr(res)) +
                 "a class is imported indirectly from a yaml"
             )
-        fields = dict(res.get_fields())
-        fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
 
-        if fields_pos != range(len(fields_pos)):
-            raise ValueError("Bad `pos` for attribute in class %s" % name)
-
-        if 'key' in fields:
-            raise ValueError("Can not use the `key` field, it's reserved")
+        check_fields(dict(res.get_bound_fields()), name)
+        check_fields(dict(res.get_unbound_fields()), name)
 
         return res
+
+
+def check_fields(fields, class_name):
+    fields_pos = sorted([attr_type.pos for attr_name, attr_type in fields.iteritems() if attr_type.pos is not None])
+
+    if fields_pos != range(len(fields_pos)):
+        raise ValueError("Bad `pos` for attribute in class %s" % class_name)
+
+    if 'key' in fields:
+        raise ValueError("Can not use the `key` field, it's reserved")
 
 
 class MissingUnwiredParamError(Exception):
@@ -146,15 +153,14 @@ class Spec(object):
     __metaclass__ = SpecMeta
 
     def __init__(self, *args, **kwargs):
-        fields = dict(self.get_fields())
-        self.initialize(fields, *args, **kwargs)
+        self.initialize(True, *args, **kwargs)
 
     @classmethod
     def auto_instance(cls, locals, globals):
         context = locals.copy()
         context.update(globals)
 
-        fields = dict(cls.get_fields())
+        fields = dict(cls.get_bound_fields())
 
         instance_kwargs = {}
         for field, field_spec in fields.iteritems():
@@ -185,15 +191,37 @@ class Spec(object):
 
         return cls(**instance_kwargs)
 
-    def initialize(self, fields, *args, **kwargs):
+    def initialize(self, being_created, *args, **kwargs):
+        """
+        Initializes a spec. It handles the bound/unbound semantic.
+
+        You have to initialize the spec with all it's bound fields.
+        Once you've initialized the spec, you can initialize it again, this time with all it's unbound fields.
+
+        However, you can initialize the spec all at once too with both bound and unbound fields. That case happens when
+        you load a totally bound serialized spec.
+
+        Lastly, the positional arguments' semantic depends on the initialization state:
+        * When the spec is instanced, *args will map to bound fields
+        * When the spec is then bound, *args will map to unbound fields
+
+        :param being_created: Tells the method whether *args map to bound or unbound fields
+        """
         pos2name = {}
         kwargs_field = None
         args_field = None
-        for attr_name, attr_type in fields.iteritems():
+
+        all_fields = dict(self.get_fields())
+        bound_fields = dict(self.get_bound_fields())
+        unbound_fields = dict(self.get_unbound_fields())
+
+        # Check positional arguments
+        for attr_name, attr_type in (bound_fields if being_created else unbound_fields).iteritems():
             if attr_type.pos is not None:
                 pos2name[attr_type.pos] = attr_name
 
             elif isinstance(attr_type, KwargsField):
+                # KwargsField always have pos = None
                 if kwargs_field is not None:
                     raise RuntimeError(
                         "A spec can have at most one kwargs field, found {} and {}".format(attr_name, kwargs_field))
@@ -230,46 +258,63 @@ class Spec(object):
             else:
                 kwargs[pos2name[i]] = arg
 
+        # Remove args_field from kwargs
+        if args_field is not None:
+            kwargs.pop(args_field, None)
+
         # Set defaults for missing kwargs, that do have default
-        for attr, attr_type in fields.iteritems():
-            if attr_type.has_default_value() and attr not in kwargs:
-                kwargs[attr] = attr_type.default
+        for attr, attr_type in (bound_fields if being_created else unbound_fields).iteritems():
+            if attr not in kwargs and attr != args_field:
+                if attr_type.has_default_value():
+                    kwargs[attr] = attr_type.default
 
         # If there's an actual kwargs field, put all extra keyword arguments there
         if kwargs_field is not None:
             kwargs_param_value = {
                 attr: attr_type
                 for attr, attr_type in kwargs.iteritems()
-                if attr not in fields
+                if attr not in all_fields
                 }
 
             kwargs = {
                 attr: attr_type
                 for attr, attr_type in kwargs.iteritems()
-                if attr in fields and attr != kwargs_field and attr != args_field
+                if attr in all_fields and attr != kwargs_field
                 }
 
-        # Check that len(kwargs) == len(fields)
-        if len(kwargs) > len(fields):
-            raise InvalidSpecInstance("Class %s does not take the following arguments: %s" % (
-                type(self).__name__, ", ".join(f for f in kwargs if f not in fields)))
+        # if being created, you can pass both bound and unbound
+        # if being bound, you can only pass unbound fields
+        if len(kwargs) > being_created * len(bound_fields) + len(unbound_fields):
+            raise InvalidSpecInstance(
+                "Class %s does not take the following arguments: %s" % (
+                    type(self).__name__, ", ".join(f for f in kwargs if f not in bound_fields)
+                )
+            )
 
-        elif len(kwargs) < len(fields) - (args_field is not None) - (kwargs_field is not None):
-            raise InvalidSpecInstance("Missing arguments for class %s: %s" % (
-                type(self).__name__, ", ".join(f for f in fields if f not in kwargs)))
+        elif len(kwargs) < len(bound_fields if being_created else unbound_fields) - (args_field is not None) - (
+                    kwargs_field is not None):
+            raise InvalidSpecInstance(
+                "Missing arguments for class %s: %s" % (
+                    type(self).__name__, ", ".join(f for f in all_fields if f not in kwargs)
+                )
+            )
 
         for attr in kwargs:
-            if attr not in fields:
-                raise InvalidSpecInstance("Received extra parameter {}".format(attr))
+            if attr not in (all_fields if being_created else unbound_fields):
+                raise InvalidSpecInstance("{} received extra parameter {}".format(type(self).__name__, attr))
 
         # Make sure that everything receives what it expects
-        for attr, attr_type in fields.iteritems():
-            val = kwargs.get(attr)
+        for attr, val in kwargs.iteritems():
+            attr_type = all_fields[attr]
             if val is None: continue
+
+            # Do not check types for unbound fields yet
+            if isinstance(val, UnboundField): continue
+
             if not attr_type.check_valid_value(val):
                 raise InvalidSpecInstance(
                     (
-                        "Invalid value for parameter {attr} in {type_name}." +
+                        "Invalid value for parameter {attr} in {type_name}. " +
                         "Received {val}, expected {expected_types}\n" +
                         "If you think {val} is an instance of any of the allowed classes ({expected_types}), then this " +
                         "might be an issue related to the having reloaded a module containing de definition of {val}"
@@ -331,51 +376,12 @@ class Spec(object):
 
     @memoized_property
     def key(self):
-        return '/%s' % json.dumps(self.__dict2key(self.to_dict(include_all=False)))
+        return self._dict2key(self.to_dict(include_all=False))
 
     def __setattr__(self, key, value):
         # invalidate key cache if you change the object
         if hasattr(self, '_key'): del self._key
         return super(Spec, self).__setattr__(key, value)
-
-    def to_dict(self, include_all=False):
-        """
-        :param include_toggles: Wether to include or not toggle_fields, default=False
-        """
-        import_path = get_import_path(type(self))
-        if inspect.getmodule(type(self)).__name__ == '__main__':
-            warnings.warn(
-                """
-                The module of {} is __main__.
-                It's likely that you are not going to be able to desserialize this spec
-                """.format(type(self)),
-                MainModuleWarning
-            )
-
-        res = {'type': import_path}
-
-        for attr, attr_type in type(self).get_fields():
-            val = getattr(self, attr)
-
-            if isinstance(attr_type, PrimitiveField) and (attr_type.serialize or include_all):
-                if inspect.isfunction(val) or inspect.isclass(val):
-                    val = 'import {}'.format(get_import_path(val))
-
-                res[attr] = val
-
-            elif isinstance(attr_type, BaseSpecField) and (include_all or attr_type.serialize):
-                res[attr] = val if val is None else val.to_dict(include_all=include_all)
-
-            elif isinstance(attr_type, SpecCollection) and (include_all or attr_type.serialize):
-                def f(obj):
-                    if isinstance(obj, Spec):
-                        return obj.to_dict(include_all=include_all)
-                    else:
-                        return obj
-
-                res[attr] = recursive_map(val, f)
-
-        return res
 
     def to_kwargs(self, include_all=False):
         """
@@ -426,23 +432,26 @@ class Spec(object):
     def get_fields(cls):
         for k in dir(cls):
             v = getattr(cls, k)
-            if isinstance(v, Field) and not isinstance(v, UnboundField):
+            if isinstance(v, Field):
                 yield k, v
 
     @classmethod
-    def get_unbinded_fields(cls):
-        for k in dir(cls):
-            v = getattr(cls, k)
+    def get_unbound_fields(cls):
+        for k, v in cls.get_fields():
             if isinstance(v, UnboundField):
                 yield k, v
 
+    @classmethod
+    def get_bound_fields(cls):
+        for k, v in cls.get_fields():
+            if not isinstance(v, UnboundField):
+                yield k, v
+
     def bind(self, *args, **kwargs):
-        fields = dict(self.get_unbinded_fields())
-        return self.copy().initialize(fields, *args, **kwargs)
+        return self.copy().initialize(False, *args, **kwargs)
 
     def inplace_bind(self, *args, **kwargs):
-        fields = dict(self.get_unbinded_fields())
-        return self.initialize(fields, *args, **kwargs)
+        return self.initialize(False, *args, **kwargs)
 
     @classmethod
     def _get_all_subclasses(cls):
@@ -468,11 +477,10 @@ class Spec(object):
         if not isinstance(spec_type, dict) and not isinstance(spec_type, basestring):
             raise ValueError("Invalid type for spec_type")
 
-        if (
-                isinstance(spec_type, dict) or
-                ':' in spec_type or
-                '.' in spec_type
-        ):
+        if (isinstance(spec_type, dict) or
+                    ':' in spec_type or
+                    '.' in spec_type):
+
             cls = obj_from_path(spec_type)
             assert issubclass(cls, Spec), "The provided path does not point to an Spec subclass"
             return cls
@@ -511,16 +519,57 @@ class Spec(object):
         return hash(self.key)
 
     def __eq__(self, other):
-        return (
-            type(self) is type(other) and
-            self.key == other.key
-        )
+        return isinstance(other, type(self)) and self.key == other.key
 
     def __lt__(self, other):
         return self.key < other.key
 
     def __ne__(self, other):
         return self.key != other.key
+
+    def to_dict(self, include_all=False):
+        """
+        :param include_toggles: Wether to include or not toggle_fields, default=False
+        """
+        import_path = get_import_path(type(self))
+        if inspect.getmodule(type(self)).__name__ == '__main__':
+            warnings.warn(
+                """
+                The module of {} is __main__.
+                It's likely that you are not going to be able to desserialize this spec
+                """.format(type(self)),
+                MainModuleWarning
+            )
+
+        res = {'type': import_path}
+
+        for attr, attr_type in self.get_fields():
+            val = getattr(self, attr)
+
+            # Do not consider fields not bound yet
+            if isinstance(val, UnboundField): continue
+
+            if isinstance(attr_type, PrimitiveField) and (attr_type.serialize or include_all):
+                if inspect.isfunction(val) or inspect.isclass(val):
+                    val = 'import {}'.format(get_import_path(val))
+                elif isinstance(val, basestring) and val.startswith('import '):
+                    val = '!!{}'.format(val)
+
+                res[attr] = val
+
+            elif isinstance(attr_type, BaseSpecField) and (include_all or attr_type.serialize):
+                res[attr] = val if val is None else val.to_dict(include_all=include_all)
+
+            elif isinstance(attr_type, SpecCollection) and (include_all or attr_type.serialize):
+                def f(obj):
+                    if isinstance(obj, Spec):
+                        return obj.to_dict(include_all=include_all)
+                    else:
+                        return obj
+
+                res[attr] = recursive_map(val, f)
+
+        return res
 
     @classmethod
     def _from_dict(cls, kwargs, path=None):
@@ -529,12 +578,16 @@ class Spec(object):
         args = tuple()
 
         for attr, attr_type in cls.get_fields():
-            val = kwargs.get(attr, attr_type.default)
+            if attr_type.has_default_value():
+                val = kwargs.get(attr, attr_type.default)
+            else:
+                val = kwargs[attr]
 
-            if (isinstance(attr_type, PrimitiveField) and
-                    isinstance(val, basestring) and
-                    val.startswith('import ')):
-                kwargs[attr] = obj_from_path(val[len('import '):])
+            if isinstance(attr_type, PrimitiveField) and isinstance(val, basestring):
+                if val.startswith('import '):
+                    kwargs[attr] = obj_from_path(val[len('import '):])
+                elif val.startswith('!!import'):
+                    kwargs[attr] = val[2:]
 
             elif isinstance(attr_type, BaseSpecField) and val is not None and attr in kwargs:
                 if isinstance(val, basestring):
@@ -566,12 +619,13 @@ class Spec(object):
 
                 def recursion_condition(obj):
                     try:
+                        # TODO: this masks errors in a very ugly way
                         Spec.dict2spec(obj)
                         return False
                     except:
                         return is_iterable(obj)
 
-                val = recursive_map(kwargs[attr], f, recursion_condition)
+                val = recursive_map(val, f, recursion_condition)
                 if isinstance(attr_type, ArgsField):
                     args = tuple(val)
                 elif isinstance(attr_type, KwargsField):
@@ -582,14 +636,16 @@ class Spec(object):
         return cls(*args, **kwargs)
 
     @classmethod
-    def __dict2key(cls, d):
-        d = d.copy()
-        for k, v in d.iteritems():
-            if isinstance(v, dict):
-                d[k] = cls.__dict2key(v)
+    def _dict2key(cls, d):
+        def prepare_dict(input):
+            output = input.copy()
+            for k, v in output.iteritems():
+                if isinstance(v, dict):
+                    output[k] = prepare_dict(v)
+            return output
 
-        # TODO que devuelva algo que no es un diccionario
-        return {'transformed': True, 'dict': sorted(d.iteritems(), key=lambda x: x[0])}
+        d = prepare_dict(d)
+        return json.dumps({'transformed': True, 'dict': sorted(d.iteritems(), key=lambda x: x[0])})
 
     @classmethod
     def key2dict(cls, str):
@@ -627,6 +683,46 @@ class Spec(object):
 
         return res
 
+    def similarity(self, other):
+        return matching_fields(self.to_dict(), other.to_dict())
+
+    def diff(self, other):
+        """
+        Returns a diff that when applied to other returns self
+        """
+        # Lazy import to avoid dependency loops
+        from fito.specs.diff import Diff
+        return Diff.build(other.to_dict(), self.to_dict())
+
+    def __repr__(self):
+        signature = list(self.get_fields())
+        signature.sort(key=lambda x: x[1].pos or len(signature))
+
+        fields = OrderedDict()
+        for field_name, field_spec in signature:
+            val = getattr(self, field_name)
+            # Do not print default values
+            if val == field_spec.default: continue
+
+            if isinstance(field_spec, BaseSpecField):
+                fields[field_name] = '{}(...)'.format(type(val).__name__)
+            else:
+                if isinstance(val, basestring): val = "'{}'".format(val)
+                fields[field_name] = val
+
+        return '{}({})'.format(
+            type(self).__name__,
+            ', '.join('{}={}'.format(*i) for i in fields.iteritems())
+        )
+
+
+def is_import_path(obj):
+    try:
+        return obj != obj_from_path(obj)
+    except Exception:
+        return False
+
+
 def get_import_path(obj, *attrs):
     """
     Builds a string representing an object.
@@ -644,7 +740,6 @@ def get_import_path(obj, *attrs):
     mod = inspect.getmodule(obj)
 
     if isinstance(obj, Spec):
-        # TODO: this implies that I assume that the Spec key is enough to describe any Spec
         if len(attrs) == 1:
             res = {
                 'method': attrs[0]
@@ -699,7 +794,6 @@ def obj_from_path(path):
             res = getattr(res, attr)
         return res
 
-
     else:
         parts = path.split(':')
         assert len(parts) <= 2
@@ -734,25 +828,6 @@ def obj_from_path(path):
             else:
                 obj = getattr(obj, attr)
         return obj
-
-
-def parse_string_path(path):
-    parts = path.split(':')
-
-    assert len(parts) == 2
-    full_path, class_name = parts
-
-    fromlist = '.'.join(full_path.split('.')[:-1])
-
-    try:
-        module = __import__(full_path, fromlist=fromlist)
-    except ImportError:
-        raise RuntimeError("Couldn't import {}".format(path))
-
-    try:
-        return getattr(module, class_name)
-    except AttributeError:
-        raise RuntimeError("Couldn't get '{}' attribute from module '{}'".format(class_name, module))
 
 
 def load_object(id):

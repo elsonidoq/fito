@@ -1,14 +1,20 @@
+import traceback
+from StringIO import StringIO
 import inspect
 import os
+from random import Random
 import shutil
 import tempfile
 import unittest
 
+import sys
+from fito import Operation
 from fito import Spec
 from fito import as_operation
 from fito.data_store import file, dict_ds, mongo
 from fito.data_store.mongo import get_collection, global_client
-from test_operation import get_test_operations
+from fito.data_store.rehash_ui import RehashUI
+from test_operation import get_test_operations, partial, AddOperation
 from test_spec import get_test_specs
 
 
@@ -24,7 +30,7 @@ def get_test_data_stores():
     base_mongo_collection = get_collection(global_client, 'test.test')
     base_mongo_collection.drop()
 
-    return [
+    res = [
         dict_ds.DictDataStore(),
 
         mongo.MongoHashMap(base_mongo_collection),
@@ -38,6 +44,10 @@ def get_test_data_stores():
         file.FileDataStore(file_data_store_preffix + '_dont_split_keys', split_keys=False),
         file.FileDataStore(file_data_store_preffix + '_use_class_name', use_class_name=True),
     ]
+
+    clean_data_stores(res)
+
+    return res
 
 
 def clean_data_stores(data_stores):
@@ -55,6 +65,10 @@ class TestDataStore(unittest.TestCase):
         # This is just because MongoHashMap does not handle ints on dictionary keys
         test_specs = get_test_specs(only_lists=True)
         test_operations = get_test_operations()
+
+        self.rnd = Random(42)
+        self.rnd.shuffle(test_specs)
+        self.rnd.shuffle(test_operations)
 
         self.indexed_operations = test_operations[:len(test_operations) / 2]
         self.indexed_specs = test_specs[:len(test_specs) / 2] + self.indexed_operations
@@ -138,7 +152,100 @@ class TestDataStore(unittest.TestCase):
             if ds.execute_cache is not None:
                 assert len(ds.execute_cache.queue) == 5  # all instances with execute cache have a size == 5
                 for j in xrange(5, 10):
-                    assert autosaved_func.operation_class(j) in ds.execute_cache.queue
+                    assert ds.execute_cache._get_key(autosaved_func.operation_class(j)) in ds.execute_cache.queue
+
+    def test_find_similar(self):
+        add_operations = [
+            e for e in self.rnd.sample(self.indexed_operations, 2) + self.rnd.sample(self.not_indexed_specs, 2)
+            if isinstance(e, AddOperation)
+            ]
+
+        for i, ds in enumerate(self.data_stores):
+            for j in xrange(5):
+                p = partial(j).bind(1)
+                matching = ds.find_similar(p)
+
+                d_p = p.to_dict()
+
+                for match, score in matching:
+                    d_match = match.to_dict()
+
+                    expected = 0
+                    for k, v in d_p.iteritems():
+                        in_match = k in d_match
+                        if in_match:
+                            expected += v == d_match[k]
+                        expected += in_match
+
+                    assert score == expected
+
+            for add_op in add_operations:
+                matching = ds.find_similar(add_op)
+                # It's a mess to compute the score without using matching_fields
+                best_match, score = matching[0]
+                assert (best_match == add_op) == (add_op in ds)
+
+    def test_remove(self):
+        for ds in self.data_stores:
+            # Copy the keys to avoid errors in DictDataStore
+            for spec in list(ds.iterkeys()):
+                ds.remove(spec)
+
+            self.assertRaises(StopIteration, ds.iteritems().next)
+
+    def test_get_by_id(self):
+        for i, ds in enumerate(self.data_stores):
+            for j, (id, doc) in enumerate(ds.iterkeys(raw=True)):
+                # Not gonna perform this test on these kind of specs, I might even remove them in the future
+                if isinstance(doc['type'], basestring) and '@' in doc['type']: continue
+
+                spec = Spec.dict2spec(doc)
+                v = ds[spec]
+                assert ds[id] == v
+                assert ds[doc] == v
+                assert ds[ds.get_id(spec)] == v
+
+            for spec in self.not_indexed_specs:
+                self.assertRaises(KeyError, ds.get_id, spec)
+                ds[spec] = 1
+                assert ds[ds.get_id(spec)] == 1
+
+    def test_rehash_ui(self):
+        # Avoid all prints of rehash UI
+        stdout = sys.stdout
+        sys.stdout = StringIO()
+
+        for ds_idx, ds in enumerate(self.data_stores):
+            for spec_idx, spec in enumerate([self.not_indexed_specs[0], self.not_indexed_specs[-1]]):
+                try:
+                    rehash_ui = RehashUI(ds, spec)
+
+                    for i in xrange(len(rehash_ui.similar_specs)):
+                        assert rehash_ui.is_valid_position(str(i + 1))
+
+                    rehash_ui.do_move('1')
+                    assert spec in ds
+                    assert rehash_ui.similar_specs[0][0] not in ds
+
+                    rehash_ui.do_copy('4')
+                    assert spec in ds
+                    assert rehash_ui.similar_specs[3][0] in ds
+
+                    rehash_ui.do_diff('3')
+
+                    if isinstance(spec, Operation):
+                        rehash_ui.do_execute()
+                        assert ds[spec] == spec.execute()
+
+                    rehash_ui.do_print('spec')
+                    rehash_ui.do_print('ds')
+                    rehash_ui.do_print('similar_specs')
+                    rehash_ui.do_print('similar_specs')
+                except Exception, e:
+                    # Restore prints and raise exception
+                    sys.stdout = stdout
+                    traceback.print_exc()
+                    raise e
 
 
 def func(i):
