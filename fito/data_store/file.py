@@ -60,10 +60,18 @@ class FileDataStore(BaseDataStore):
     split_keys = PrimitiveField(default=True)
     serializer = SpecField(default=None, base_type=Serializer)
     use_class_name = PrimitiveField(default=False, help='Whether the first level should be the class name')
+    auto_init_file_system = PrimitiveField(
+        default=False,
+        help='Whether we should create the config files when the data store is instanced',
+        serialize=False
+    )
 
     def __init__(self, *args, **kwargs):
         super(FileDataStore, self).__init__(*args, **kwargs)
+        if self.auto_init_file_system:
+            self.init_file_system()
 
+    def init_file_system(self):
         if not os.path.exists(self.path): os.makedirs(self.path)
 
         conf_file = os.path.join(self.path, 'conf.yaml')
@@ -178,10 +186,6 @@ class FileDataStore(BaseDataStore):
             with open(key_fname) as f:
                 key = f.read()
 
-            if len(key) == 0 and time() - os.path.getctime(key_fname) < 0.1:
-                sleep(0.1)
-                with open(key_fname) as f:
-                    key = f.read()
             if key == spec.key and self.serializer.exists(subdir): break
         else:
             raise KeyError("Spec not found")
@@ -227,6 +231,8 @@ class FileDataStore(BaseDataStore):
                     pass
 
     def save(self, spec, series):
+        if not self.auto_init_file_system: self.init_file_system()
+
         subdir = self.get_dir_for_saving(spec)
         with open(os.path.join(subdir, 'key'), 'w') as f:
             f.write(spec.key)

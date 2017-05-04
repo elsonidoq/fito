@@ -12,6 +12,10 @@ class TestFileDataStore(unittest.TestCase):
             FileDataStore(tempfile.mktemp(), serializer=RawSerializer()),
             FileDataStore(tempfile.mktemp(), use_class_name=True),
             FileDataStore(tempfile.mktemp(), serializer=PickleSerializer()),
+            FileDataStore(tempfile.mktemp(), serializer=RawSerializer(), auto_init_file_system=True),
+            FileDataStore(tempfile.mktemp(), use_class_name=True, auto_init_file_system=True),
+            FileDataStore(tempfile.mktemp(), serializer=PickleSerializer(), auto_init_file_system=True),
+            FileDataStore(tempfile.mktemp(), auto_init_file_system=True)
         ]
 
         self.test_specs = get_test_specs(only_lists=True)
@@ -22,9 +26,23 @@ class TestFileDataStore(unittest.TestCase):
 
     def test_existing_path(self):
         for ds in self.data_stores:
-            self.assertRaises(RuntimeError, FileDataStore, ds.path, use_class_name=not ds.use_class_name)
+            ds.init_file_system()
+
+            self.assertRaises(
+                RuntimeError,
+                FileDataStore,
+                ds.path,
+                use_class_name=not ds.use_class_name,
+                auto_init_file_system=True
+            )
             other_serializer = PickleSerializer() if isinstance(ds.serializer, RawSerializer) else RawSerializer()
-            self.assertRaises(RuntimeError, FileDataStore, ds.path, serializer=other_serializer)
+            self.assertRaises(
+                RuntimeError,
+                FileDataStore,
+                ds.path,
+                serializer=other_serializer,
+                auto_init_file_system=True
+            )
 
     def test_clean(self):
         for ds in self.data_stores:

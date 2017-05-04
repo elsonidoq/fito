@@ -33,6 +33,7 @@ def get_test_data_stores():
         file.FileDataStore(file_data_store_preffix + '_with_get_cache', get_cache_size=10),
         file.FileDataStore(file_data_store_preffix + '_dont_split_keys', split_keys=False),
         file.FileDataStore(file_data_store_preffix + '_use_class_name', use_class_name=True),
+        file.FileDataStore(file_data_store_preffix + '_auto_init_fs', auto_init_file_system=True),
 
         dict_ds.DictDataStore(),
     ]
