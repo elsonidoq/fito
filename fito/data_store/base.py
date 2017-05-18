@@ -55,9 +55,11 @@ class BaseDataStore(OperationRunner):
                 if config.interactive_rehash and spec not in RehashUI.ignored_specs:
                     # Interactive rehash has been enabled and this spec has not been processed
                     # Trigger interactive rehash
-                    self.interactive_rehash(spec)
-                    # Retry the get
-                    return self.get(spec)
+                    if self.interactive_rehash(spec):
+                        # If we did an interactive rehash, retry the get
+                        return self.get(spec)
+                    else:
+                        raise e
                 else:
                     raise e
 
@@ -168,12 +170,16 @@ class BaseDataStore(OperationRunner):
         return res
 
     def interactive_rehash(self, spec):
-        if self.find_similar(spec):
+        similar = self.find_similar(spec)
+        if similar:
             # Disable interactive rehash functionality
             # This is obviously not thread safe
             config.interactive_rehash = False
             RehashUI(data_store=self, spec=spec).cmdloop()
             config.interactive_rehash = True
+            return True
+        else:
+            return False
 
 
 class AutosavedFunction(as_operation):
