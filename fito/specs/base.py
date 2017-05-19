@@ -576,7 +576,9 @@ class Spec(object):
         args = tuple()
 
         for attr, attr_type in cls.get_fields():
-            if attr_type.has_default_value():
+            if attr not in kwargs and isinstance(attr_type, UnboundField):
+                continue
+            elif attr_type.has_default_value():
                 val = kwargs.get(attr, attr_type.default)
             else:
                 val = kwargs[attr]
