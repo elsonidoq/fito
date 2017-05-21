@@ -1,15 +1,15 @@
 coverage erase
 
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_spec
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_operation_runner
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_operation
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_data_store
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_file_data_store
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_mongo_data_store
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_decorators
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_model
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_ioc
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_refactor
-coverage run -a --source=fito --rcfile .coveragerc  -m unittest test_diff
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_spec
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_operation_runner
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_operation
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_data_store
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_file_data_store
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_mongo_data_store
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_decorators
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_model
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_ioc
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_refactor
+coverage run -a --source=fito --rcfile .coveragerc  -m unittest -v test_diff
 
 coverage html
