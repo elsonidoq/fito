@@ -201,6 +201,13 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
 
         return res
 
+    @property
+    def self(self):
+        if method_type is None:
+            raise RuntimeError('Can only be called with an operation created from a method')
+
+        return first_arg
+
     def apply(self, runner):
         this_args = self.get_this_args(runner)
         return func_to_execute(**this_args)
@@ -210,6 +217,7 @@ def operation_from_func(to_wrap, func_to_execute, out_type, out_name, args_speci
     cls_attrs['apply'] = apply
     cls_attrs['get_this_args'] = get_this_args
     cls_attrs['to_dict'] = to_dict
+    cls_attrs['self'] = self
 
     cls = Operation.type2spec_class(out_name)
     if cls is None:
