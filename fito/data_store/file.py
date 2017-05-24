@@ -58,7 +58,7 @@ class RawSerializer(SingleFileSerializer):
 class FileDataStore(BaseDataStore):
     path = PrimitiveField(0)
     split_keys = PrimitiveField(default=True)
-    serializer = SpecField(default=None, base_type=Serializer)
+    serializer = SpecField(default=PickleSerializer(), base_type=Serializer)
     use_class_name = PrimitiveField(default=False, help='Whether the first level should be the class name')
     auto_init_file_system = PrimitiveField(
         default=False,
@@ -108,8 +108,6 @@ class FileDataStore(BaseDataStore):
             self.serializer = conf_serializer
             self.use_class_name = conf_use_class_name
         else:
-            if self.serializer is None: self.serializer = PickleSerializer()
-
             with open(conf_file, 'w') as f:
                 yaml.dump(
                     {
