@@ -54,8 +54,11 @@ class OperationRunner(Spec):
         )
 
         for func in functions:
-            res = func()
-            if res is not None: break
+            try:
+                res = func()
+                break
+            except KeyError:
+                pass
 
         if self.execute_cache is not None:
             self.execute_cache.set(operation, res)
@@ -68,12 +71,16 @@ class OperationRunner(Spec):
 
     def _get_memory_cache(self, operation):
         if self.execute_cache is not None:
-            return self.execute_cache.get(operation)
+            return self.execute_cache[operation]
+        else:
+            raise KeyError()
 
     def _get_data_store_cache(self, operation):
         out_data_store = operation.get_out_data_store()
         if out_data_store is not None:
-            return out_data_store.get_or_none(operation)
+            return out_data_store[operation]
+        else:
+            raise KeyError()
 
 
 class FifoCache(object):
