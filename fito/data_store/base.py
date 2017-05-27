@@ -201,6 +201,12 @@ class AutosavedFunction(as_operation):
 
                 return res
 
+            def __repr__(self):
+                d = self.to_dict(include_all=True)
+                d.pop('type')
+                return OperationClass(**d).__repr__()
+
+
         class FunctionWrapper(object):
             @property
             def wrapped_function(self):
