@@ -173,7 +173,7 @@ class SpecCollection(Field, MockIterable):
         if not is_iterable(value): return False
 
         for k, v in general_iterator(value):
-            if not isinstance(v, base.Spec): return False
+            if not (isinstance(k, base.Spec) or isinstance(v, base.Spec)): return False
 
         return True
 
