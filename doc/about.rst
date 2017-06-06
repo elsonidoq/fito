@@ -1,7 +1,19 @@
 About
 -----
 
-Fito aims to be the SQLAlchemy of the data science workflow. That means, the goal of fito is to help you specify
+Fito aims to be the SQLAlchemy of the data science workflow.
+
+Let me clarify that a little be. In relational databases we have some entities we want to map to rows in tables.
+That abstractions helps on the one hand, to detach our code from how serialization is implemented. On the other,
+work with better abstractions regarding our domain specific entities.
+
+So, what are the Data Science entities usually like? We usually have input data, probably some ETL, then some
+experiments we want to perform and benchmark.
+
+Fito does not aim to provide a pipelining functionality
+
+
+That means, the goal of fito is to help you specify
 experiments, and store metadata attached to them. It also helps you cache expensive computations seamlesly.
 
 It then provides tools to help you on your day to day data science flow issues, so you can just focus on what really

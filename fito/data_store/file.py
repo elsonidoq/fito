@@ -57,6 +57,19 @@ class RawSerializer(SingleFileSerializer):
             return f.read()
 
 
+import luigi
+
+class T(luigi.Task):
+    param = luigi.Parameter(default=43)
+
+    def run(self):
+        f = self.output().open('w')
+        print >> f, 'hello wold {}'.format(self.param)
+        f.close()
+
+    def output(self):
+        return luigi.LocalTarget('a.txt')
+
 class FileDataStore(BaseDataStore):
     path = PrimitiveField(0)
     split_keys = PrimitiveField(default=True)
