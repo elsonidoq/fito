@@ -5,6 +5,10 @@ from fito import Spec
 from fito.specs.fields import NumericField
 
 
+class NotFoundError(Exception):
+    pass
+
+
 class OperationRunner(Spec):
     execute_cache_size = NumericField(default=0)
     verbose = PrimitiveField(default=False)
@@ -57,7 +61,7 @@ class OperationRunner(Spec):
             try:
                 res = func()
                 break
-            except KeyError:
+            except NotFoundError:
                 pass
 
         if self.execute_cache is not None:
@@ -71,16 +75,20 @@ class OperationRunner(Spec):
 
     def _get_memory_cache(self, operation):
         if self.execute_cache is not None:
-            return self.execute_cache[operation]
+            try: return self.execute_cache[operation]
+            except KeyError: raise NotFoundError()
         else:
-            raise KeyError()
+            raise NotFoundError()
 
     def _get_data_store_cache(self, operation):
         out_data_store = operation.get_out_data_store()
         if out_data_store is not None:
-            return out_data_store[operation]
+            try:
+                return out_data_store[operation]
+            except KeyError:
+                raise NotFoundError()
         else:
-            raise KeyError()
+            raise NotFoundError()
 
 
 class FifoCache(object):
