@@ -218,7 +218,8 @@ class AutosavedFunction(as_operation):
 
             @wraps(to_wrap)
             def __call__(_, *args, **kwargs):
-                return self.cache_on.execute(AutosavedOperation(*args, **kwargs))
+                force = kwargs.pop('force_run', False)
+                return self.cache_on.execute(AutosavedOperation(*args, **kwargs), force=force)
 
         return FunctionWrapper()
 
