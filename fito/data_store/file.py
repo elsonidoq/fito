@@ -169,7 +169,7 @@ class FileDataStore(BaseDataStore):
                 continue
 
     def _get_dir(self, spec):
-        is_human_readable = self.allow_human_readable_dirs and '/' not in spec.key and len(spec.key) < 50
+        is_human_readable = self.allow_human_readable_dirs and len(spec.key) < 50
 
         if is_human_readable:
             h = spec.key
