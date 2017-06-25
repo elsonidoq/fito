@@ -66,6 +66,9 @@ class FileDataStore(BaseDataStore):
         serialize=False
     )
 
+    allow_human_readable_dirs = PrimitiveField(default=False)
+    store_key = PrimitiveField(default=True)
+
     def __init__(self, *args, **kwargs):
         super(FileDataStore, self).__init__(*args, **kwargs)
         if self.auto_init_file_system:
@@ -80,21 +83,12 @@ class FileDataStore(BaseDataStore):
             with open(conf_file) as f:
                 conf = yaml.load(f)
 
-            if 'serializer' not in conf:
-                warnings.warn("Old conf.yaml format. Please update it to the new format")
-                conf_serializer = Spec.dict2spec(conf)
-                conf_use_class_name = False
-            else:
-                conf_serializer = Spec.dict2spec(conf['serializer'])
-                conf_use_class_name = conf.get('use_class_name', False)
+            conf_serializer = Spec.dict2spec(conf['serializer'])
+            conf_attr_names = 'store_key allow_human_readable_dirs use_class_name'.split()
 
-            if conf_use_class_name != self.use_class_name:
-                raise RuntimeError(
-                    'This store was initialized with use_class_name = {} and now was instanced with {}'.format(
-                        conf_use_class_name,
-                        self.use_class_name
-                    )
-                )
+            for attr_name in conf_attr_names:
+                conf[attr_name] = conf.get(attr_name, getattr(type(self), attr_name).default)
+                self._check_config(attr_name, conf[attr_name])
 
             if self.serializer is not None and self.serializer != conf_serializer:
                 raise RuntimeError(
@@ -105,17 +99,28 @@ class FileDataStore(BaseDataStore):
                     )
                 )
 
-            self.serializer = conf_serializer
-            self.use_class_name = conf_use_class_name
         else:
             with open(conf_file, 'w') as f:
                 yaml.dump(
                     {
                         'serializer': self.serializer.to_dict(),
-                        'use_class_name': self.use_class_name
+                        'use_class_name': self.use_class_name,
+                        'allow_human_readable_dirs': self.allow_human_readable_dirs,
+                        'store_key': self.store_key
                     },
                     f
                 )
+
+    def _check_config(self, attr_name, conf_val):
+        attr_val = getattr(self, attr_name)
+        if attr_val != conf_val:
+            raise RuntimeError(
+                'This store was initialized with {} = {} and now was instanced with {}'.format(
+                    attr_name,
+                    conf_val,
+                    attr_val
+                )
+            )
 
     def clean(self, cls=None):
         for op in self.iterkeys():
@@ -128,25 +133,28 @@ class FileDataStore(BaseDataStore):
 
     def iterkeys(self, raw=False):
         for subdir, _, _ in os.walk(self.path):
-            key_fname = os.path.join(subdir, 'key')
-            if not os.path.exists(key_fname): continue
+            id_fname = os.path.join(subdir, self.get_id_fname())
+            if not os.path.exists(id_fname): continue
 
-            with open(key_fname) as f:
-                key = f.read()
+            with open(id_fname) as f:
+                id = f.read()
+
+            if self.store_key:
+                spec_dict = Spec.key2dict(id)
+            else:
+                spec_dict = json.loads(id)
 
             if raw:
-                yield subdir, Spec.key2dict(key)
+                yield subdir, spec_dict
             else:
                 try:
-                    spec = Spec.key2spec(key)
+                    yield Spec.dict2spec(spec_dict)
                 except Exception, e:  # there might be a key that is not a valid json
                     if len(e.args) > 0 and isinstance(e.args[0], basestring) and e.args[0].startswith(
                             'Unknown spec type'): raise e
                     traceback.print_exc()
                     warnings.warn('Unable to load spec key: {}'.format(key))
                     continue
-
-                yield spec
 
     def get_by_id(self, subdir):
         assert subdir.startswith(self.path)
@@ -161,10 +169,16 @@ class FileDataStore(BaseDataStore):
                 continue
 
     def _get_dir(self, spec):
-        h = str(mmh3.hash(spec.key))
+        is_human_readable = self.allow_human_readable_dirs and '/' not in spec.key and len(spec.key) < 50
+
+        if is_human_readable:
+            h = spec.key
+        else:
+            h = str(mmh3.hash(spec.key))
+
         path = os.path.join(self.path, type(spec).__name__) if self.use_class_name else self.path
 
-        if self.split_keys:
+        if self.split_keys and not is_human_readable:
             fname = os.path.join(path, h[:3], h[3:6], h[6:])
         else:
             fname = os.path.join(path, h)
@@ -178,17 +192,30 @@ class FileDataStore(BaseDataStore):
         for subdir in subdirs:
             subdir = os.path.join(dir, subdir)
             if not os.path.isdir(subdir): continue
-            key_fname = os.path.join(subdir, 'key')
-            if not os.path.exists(key_fname): continue
 
-            with open(key_fname) as f:
-                key = f.read()
+            fname = os.path.join(subdir, self.get_id_fname())
+            if not os.path.exists(fname): continue
 
-            if key == spec.key and self.serializer.exists(subdir): break
+            with open(fname) as f:
+                id = f.read()
+
+            if not self.store_key: id = json.loads(id)
+
+            if self.serializer.exists(subdir) and self.id_eq_spec(id, spec): break
+
         else:
             raise KeyError("Spec not found")
 
         return subdir
+
+    def id_eq_spec(self, id, spec):
+        return (
+            (self.store_key and id == spec.key) or
+            (not self.store_key and id == spec.to_dict())
+        )
+
+    def get_id_fname(self):
+        return 'key' if self.store_key else 'spec_dict'
 
     def _get(self, spec):
         subdir = self._get_subdir(spec)
@@ -208,11 +235,13 @@ class FileDataStore(BaseDataStore):
             pass
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
-            key_fname = os.path.join(subdir, 'key')
-            if not os.path.exists(key_fname): continue
-            with open(key_fname) as f:
-                key = f.read()
-            if key == spec.key:
+
+            id_fname = os.path.join(subdir, self.get_id_fname())
+            if not os.path.exists(id_fname): continue
+            with open(id_fname) as f:
+                id = f.read()
+
+            if self.id_eq_spec(id, spec):
                 return subdir
         else:
             while True:
@@ -232,8 +261,11 @@ class FileDataStore(BaseDataStore):
         if not self.auto_init_file_system: self.init_file_system()
 
         subdir = self.get_dir_for_saving(spec)
-        with open(os.path.join(subdir, 'key'), 'w') as f:
-            f.write(spec.key)
+        with open(os.path.join(subdir, self.get_id_fname()), 'w') as f:
+            if self.store_key:
+                f.write(spec.key)
+            else:
+                json.dump(spec.to_dict(), f)
 
         self.serializer.save(series, subdir)
 
