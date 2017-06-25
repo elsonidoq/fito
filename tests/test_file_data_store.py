@@ -15,7 +15,11 @@ class TestFileDataStore(unittest.TestCase):
             FileDataStore(tempfile.mktemp(), serializer=RawSerializer(), auto_init_file_system=True),
             FileDataStore(tempfile.mktemp(), use_class_name=True, auto_init_file_system=True),
             FileDataStore(tempfile.mktemp(), serializer=PickleSerializer(), auto_init_file_system=True),
-            FileDataStore(tempfile.mktemp(), auto_init_file_system=True)
+            FileDataStore(tempfile.mktemp(), auto_init_file_system=True),
+
+            FileDataStore(tempfile.mktemp(), use_class_name=True, store_key=False, allow_human_readable_dirs=True),
+            FileDataStore(tempfile.mktemp(), store_key=False, auto_init_file_system=True),
+            FileDataStore(tempfile.mktemp(), allow_human_readable_dirs=True, auto_init_file_system=True),
         ]
 
         self.test_specs = get_test_specs(only_lists=True)
@@ -53,7 +57,8 @@ class TestFileDataStore(unittest.TestCase):
             except:
                 assert False
 
-            ds.clean()
+            try: ds.clean()
+            except: import ipdb;ipdb.set_trace()
 
             self.assertRaises(StopIteration, ds.iterkeys().next)
 

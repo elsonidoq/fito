@@ -9,7 +9,7 @@ from fito import as_operation
 from fito.data_store import file, dict_ds, mongo
 from fito.data_store.mongo import get_collection, global_client
 from test_operation import get_test_operations
-from test_spec import get_test_specs
+from test_spec import get_test_specs, CustomKey
 
 
 def delete(path):
@@ -63,6 +63,7 @@ class TestDataStore(unittest.TestCase):
         for i, ds in enumerate(self.data_stores):
             # Populate the data stores
             for j, spec in enumerate(self.indexed_specs):
+                if isinstance(spec, CustomKey) and ds.to_dict().get('store_key'): continue
                 ds[spec] = j
 
     def tearDown(self):
@@ -80,6 +81,8 @@ class TestDataStore(unittest.TestCase):
     def test_get(self):
         for ds in self.data_stores:
             for i, spec in enumerate(self.indexed_specs):
+                if isinstance(spec, CustomKey) and ds.to_dict().get('store_key'): continue
+
                 assert ds[spec] == i
                 assert ds.get(spec) == i
                 assert ds.get_or_none(spec) == i
@@ -92,7 +95,12 @@ class TestDataStore(unittest.TestCase):
 
     def test_keys(self):
         for ds in self.data_stores:
-            assert sorted(ds.iterkeys()) == sorted(self.indexed_specs)
+            if ds.to_dict().get('store_key'):
+                to_compare = [e for e in sorted(self.indexed_specs) if not isinstance(e, CustomKey)]
+            else:
+                to_compare = sorted(self.indexed_specs)
+
+            assert sorted(ds.iterkeys()) == to_compare
 
     def test_cache(self):
         orig_func = func

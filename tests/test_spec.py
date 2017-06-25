@@ -55,12 +55,19 @@ class SpecWithDefault(Spec):
     a = SpecField(default=SpecA(10))
 
 
+class CustomKey(Spec):
+    @property
+    def key(self):
+        return 'CustomKey'
+
+
 def get_test_specs(only_lists=True, easy=False):
     if easy:
         warnings.warn("get_test_specs(easy=True)")
 
     instances = [
         SpecA(0),
+        CustomKey(),
         SpecA(10, verbose=True),
         SpecA(1, datetime(2017, 1, 1)),
         SpecA(1, func=NumericField),
@@ -208,6 +215,8 @@ class TestSpec(unittest.TestCase):
 
     def test_key(self):
         for spec in self.instances:
+            if isinstance(spec, CustomKey): continue
+
             assert spec.to_dict() == Spec.key2spec(spec.key).to_dict()
 
     def test_type2spec_class(self):
