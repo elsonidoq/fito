@@ -150,10 +150,9 @@ class FileDataStore(BaseDataStore):
                 try:
                     yield Spec.dict2spec(spec_dict)
                 except Exception, e:  # there might be a key that is not a valid json
-                    if len(e.args) > 0 and isinstance(e.args[0], basestring) and e.args[0].startswith(
-                            'Unknown spec type'): raise e
+                    if len(e.args) > 0 and isinstance(e.args[0], basestring) and e.args[0].startswith('Unknown spec type'): raise e
                     traceback.print_exc()
-                    warnings.warn('Unable to load spec key: {}'.format(key))
+                    warnings.warn('Unable to load spec key: {}'.format(spec_dict))
                     continue
 
     def get_by_id(self, subdir):
