@@ -264,7 +264,7 @@ class FileDataStore(BaseDataStore):
             if self.store_key:
                 f.write(spec.key)
             else:
-                json.dump(spec.to_dict(), f)
+                json.dump(spec.to_dict(), f, indent=2)
 
         self.serializer.save(series, subdir)
 
