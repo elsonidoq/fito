@@ -10,15 +10,15 @@ class TestFileDataStore(unittest.TestCase):
     def setUp(self):
         self.data_stores = [
             FileDataStore(tempfile.mktemp(), serializer=RawSerializer()),
-            FileDataStore(tempfile.mktemp(), use_class_name=True),
             FileDataStore(tempfile.mktemp(), serializer=PickleSerializer()),
             FileDataStore(tempfile.mktemp(), serializer=RawSerializer(), auto_init_file_system=True),
-            FileDataStore(tempfile.mktemp(), use_class_name=True, auto_init_file_system=True),
             FileDataStore(tempfile.mktemp(), serializer=PickleSerializer(), auto_init_file_system=True),
             FileDataStore(tempfile.mktemp(), auto_init_file_system=True),
 
-            FileDataStore(tempfile.mktemp(), use_class_name=True, store_key=False, allow_human_readable_dirs=True),
-            FileDataStore(tempfile.mktemp(), store_key=False, auto_init_file_system=True),
+            FileDataStore(tempfile.mktemp(), allow_human_readable_dirs=True, serializer=RawSerializer()),
+            FileDataStore(tempfile.mktemp(), allow_human_readable_dirs=True, serializer=PickleSerializer()),
+            FileDataStore(tempfile.mktemp(), allow_human_readable_dirs=True, serializer=RawSerializer(), auto_init_file_system=True),
+            FileDataStore(tempfile.mktemp(), allow_human_readable_dirs=True, serializer=PickleSerializer(), auto_init_file_system=True),
             FileDataStore(tempfile.mktemp(), allow_human_readable_dirs=True, auto_init_file_system=True),
         ]
 
@@ -36,7 +36,7 @@ class TestFileDataStore(unittest.TestCase):
                 RuntimeError,
                 FileDataStore,
                 ds.path,
-                use_class_name=not ds.use_class_name,
+                allow_human_readable_dirs=not ds.allow_human_readable_dirs,
                 auto_init_file_system=True
             )
             other_serializer = PickleSerializer() if isinstance(ds.serializer, RawSerializer) else RawSerializer()
