@@ -7,6 +7,7 @@ import traceback
 import warnings
 from functools import partial
 from functools import total_ordering
+from itertools import chain
 
 from fito.specs.fields import KwargsField, ArgsField, Field, BaseSpecField, SpecCollection, UnboundField, \
     PrimitiveField
@@ -408,11 +409,15 @@ class Spec(object):
         import path spec
         :return: A subclass of Spec
         """
-        if ':' in spec_type:
+        if not isinstance(spec_type, dict) and not isinstance(spec_type, basestring):
+            raise ValueError("Invalid type for spec_type")
+
+        if isinstance(spec_type, dict) or ':' in spec_type or '.' in spec_type:
             cls = obj_from_path(spec_type)
             assert issubclass(cls, Spec), "The provided path does not point to an Spec subclass"
             return cls
         else:
+            # Then assume it's the name of the class, this is somewhat legacy
             for cls in Spec._get_all_subclasses():
                 if cls.__name__ == spec_type: return cls
 
@@ -464,7 +469,7 @@ class Spec(object):
             if attr_type.has_default_value():
                 val = kwargs.get(attr, attr_type.default)
             elif attr not in kwargs:
-                raise RuntimeError("Missing value for attribute '{}' on class '{}'".format(attr, type(self).__name__))
+                raise RuntimeError("Missing value for attribute '{}' on class '{}'".format(attr, cls.__name__))
             else:
                 val = kwargs[attr]
 
@@ -560,56 +565,63 @@ def get_import_path(obj, *attrs):
     """
     Builds a string representing an object.
     The default behaviour is the same than the import statement. Additionaly, you can specify attributes.
-
     For example:
     >>> get_import_path(Spec)
     'fito.specs.base:Spec'
-
     >>> get_import_path(Spec, 'dict2spec')
     'fito.specs.base:Spec.dict2spec'
-
     The inverse function of get_import_path is obj_from_path
     """
     mod = inspect.getmodule(obj)
 
-    if inspect.isclass(obj) or inspect.isfunction(obj):
-        res = '{}:{}'.format(mod.__name__, obj.__name__)
-    elif isinstance(obj, Spec):
-        # TODO: this implies that I assume that the Spec key is enough to describe any Spec
-        res = 'key: ({})'.format(obj.key)
-    else:
-        res = '{}:{}@{}'.format(mod.__name__, type(obj).__name__, id(obj))
+    if isinstance(obj, Spec):
+        if len(attrs) == 1:
+            res = {
+                'method': attrs[0]
+            }
+        else:
+            res = {
+                'attrs': list(attrs)
+            }
 
-    if attrs:
-        for attr in attrs:
-            res = '{}.{}'.format(res, attr)
-    return res
+        res['self'] = obj.to_dict()
+        return res
+
+    else:
+        if inspect.isclass(obj) or inspect.isfunction(obj):
+            res = '{}:{}'.format(mod.__name__, obj.__name__)
+        else:
+            res = '{}:{}@{}'.format(mod.__name__, type(obj).__name__, id(obj))
+
+        if attrs:
+            for attr in attrs:
+                res = '{}.{}'.format(res, attr)
+        return res
 
 
 def obj_from_path(path):
     """
     Retrieves an object from a given import path. The format is slightly different from the standard python one in
     order to be more expressive.
-
     Examples:
     >>> obj_from_path('fito')
     <module 'fito'>
-
     >>> obj_from_path('fito.specs')
     <module 'fito.specs'>
-
     >>> obj_from_path('fito.specs.base:Spec')
     fito.specs.base.Spec
-
     >>> obj_from_path('fito.specs.base:Spec.dict2spec')
     <function fito.specs.base.dict2spec>
     """
-    if path.startswith('key: '):
-        gd = re.match('^key: \((?P<key>.*?)\)(\.(?P<attrs>.*?))?$', path).groupdict()
+    if isinstance(path, dict):
+        res = Spec.dict2spec(path['self'])
 
-        res = Spec.key2spec(gd['key'])
+        attrs = chain(
+            [path['method']] if 'method' in path else [],
+            path.get('attrs') or []
+        )
 
-        for attr in gd.get('attrs', '').split('.'):
+        for attr in attrs:
             res = getattr(res, attr)
         return res
 
@@ -627,6 +639,8 @@ def obj_from_path(path):
         try:
             module = __import__(full_path, fromlist=fromlist)
         except WeirdModulePathException, e:
+            # This on is thrown by SpecMeta when there's a ".." inside a class path
+            # I don't know yet why this happens, but at least I know *when* it does happen :)
             traceback.print_exc()
             raise RuntimeError("Couldn't import {}".format(path) + '\n' + e.args[0])
         except ImportError:
