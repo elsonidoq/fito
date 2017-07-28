@@ -5,6 +5,7 @@ import pickle
 import shutil
 import traceback
 import warnings
+from pprint import pformat
 from time import time, sleep
 
 import yaml
@@ -57,9 +58,7 @@ class RawSerializer(SingleFileSerializer):
 
 class FileDataStore(BaseDataStore):
     path = PrimitiveField(0)
-    split_keys = PrimitiveField(default=True)
     serializer = SpecField(default=PickleSerializer(), base_type=Serializer)
-    use_class_name = PrimitiveField(default=False, help='Whether the first level should be the class name')
     auto_init_file_system = PrimitiveField(
         default=False,
         help='Whether we should create the config files when the data store is instanced',
@@ -67,7 +66,11 @@ class FileDataStore(BaseDataStore):
     )
 
     allow_human_readable_dirs = PrimitiveField(default=False)
-    store_key = PrimitiveField(default=True)
+    match_using_key = PrimitiveField(
+        default=True,
+        serialize=False,
+        help='Wether to match specs by key or by dict'
+    )
 
     def __init__(self, *args, **kwargs):
         super(FileDataStore, self).__init__(*args, **kwargs)
@@ -84,7 +87,7 @@ class FileDataStore(BaseDataStore):
                 conf = yaml.load(f)
 
             conf_serializer = Spec.dict2spec(conf['serializer'])
-            conf_attr_names = 'store_key allow_human_readable_dirs use_class_name'.split()
+            conf_attr_names = 'allow_human_readable_dirs'.split()
 
             for attr_name in conf_attr_names:
                 conf[attr_name] = conf.get(attr_name, getattr(type(self), attr_name).default)
@@ -104,9 +107,7 @@ class FileDataStore(BaseDataStore):
                 yaml.dump(
                     {
                         'serializer': self.serializer.to_dict(),
-                        'use_class_name': self.use_class_name,
                         'allow_human_readable_dirs': self.allow_human_readable_dirs,
-                        'store_key': self.store_key
                     },
                     f
                 )
@@ -133,16 +134,11 @@ class FileDataStore(BaseDataStore):
 
     def iterkeys(self, raw=False):
         for subdir, _, _ in os.walk(self.path):
-            id_fname = os.path.join(subdir, self.get_id_fname())
-            if not os.path.exists(id_fname): continue
+            spec_dict_fname = os.path.join(subdir, 'spec_dict')
+            if not os.path.exists(spec_dict_fname): continue
 
-            with open(id_fname) as f:
-                id = f.read()
-
-            if self.store_key:
-                spec_dict = Spec.key2dict(id)
-            else:
-                spec_dict = json.loads(id)
+            with open(spec_dict_fname) as f:
+                spec_dict = json.load(f)
 
             if raw:
                 yield subdir, spec_dict
@@ -168,22 +164,23 @@ class FileDataStore(BaseDataStore):
                 continue
 
     def _get_dir(self, spec):
-        is_human_readable = self.allow_human_readable_dirs and len(spec.key) < 50
-
-        if is_human_readable:
+        """
+        Returns the top dir associated with a spec.
+        We might have collisions here. Those collisions are handled on `_get_subdir`
+        """
+        if self.allow_human_readable_dirs:
             h = spec.key
         else:
             h = str(mmh3.hash(spec.key))
 
-        path = os.path.join(self.path, type(spec).__name__) if self.use_class_name else self.path
-
-        if self.split_keys and not is_human_readable:
-            fname = os.path.join(path, h[:3], h[3:6], h[6:])
-        else:
-            fname = os.path.join(path, h)
+        fname = os.path.join(self.path, h)
         return fname
 
     def _get_subdir(self, spec):
+        """
+        Returns the exact path containing the value associated with `spec`
+        If `spec` is not stored, raises KeyError
+        """
         dir = self._get_dir(spec)
         if not os.path.exists(dir): raise KeyError("Spec not found")
 
@@ -191,30 +188,45 @@ class FileDataStore(BaseDataStore):
         for subdir in subdirs:
             subdir = os.path.join(dir, subdir)
             if not os.path.isdir(subdir): continue
-
-            fname = os.path.join(subdir, self.get_id_fname())
-            if not os.path.exists(fname): continue
-
-            with open(fname) as f:
-                id = f.read()
-
-            if not self.store_key: id = json.loads(id)
-
-            if self.serializer.exists(subdir) and self.id_eq_spec(id, spec): break
+            if not self.serializer.exists(subdir): continue
+            if self._subdir_contains_spec(subdir, spec): break
 
         else:
             raise KeyError("Spec not found")
 
         return subdir
 
-    def id_eq_spec(self, id, spec):
-        return (
-            (self.store_key and id == spec.key) or
-            (not self.store_key and id == spec.to_dict())
-        )
+    def _subdir_contains_spec(self, subdir, spec):
+        """
+        Returns true if `spec` is stored in `subdir`
+        It matches using key or dict according to self.match_using_key
+        """
+        spec_dict_fname = os.path.join(subdir, 'spec_dict')
+        if not os.path.exists(spec_dict_fname): return False
 
-    def get_id_fname(self):
-        return 'key' if self.store_key else 'spec_dict'
+        with open(spec_dict_fname) as f:
+            stored_spec_dict = json.load(f)
+
+        try:
+            stored_spec = Spec.dict2spec(stored_spec_dict)
+
+            if self.match_using_key:
+                res = stored_spec.key == spec.key
+                if res and spec.to_dict() != stored_spec_dict:
+                    warnings.warn(
+                        'Matching two specs with different dicts: \n {} \n\n with \n\n {}'.format(
+                            pformat(spec.to_dict()),
+                            pformat(stored_spec_dict)
+                        )
+                    )
+            else:
+                res = spec.to_dict() == stored_spec_dict
+
+            return res
+        except Exception:
+            traceback.print_exc()
+            warnings.warn('Unable to load spec from dir: {}'.format(subdir))
+            return False
 
     def _get(self, spec):
         subdir = self._get_subdir(spec)
@@ -226,25 +238,21 @@ class FileDataStore(BaseDataStore):
 
     def get_dir_for_saving(self, spec):
         dir = self._get_dir(spec)
-        # this accounts for both checking if it not exists, and the fact that there might
-        # be another process doing the same thing
         try:
+            # this accounts for both checking if it not exists, and the fact that there might
+            # be another process doing the same thing
             os.makedirs(dir)
         except OSError:
             pass
+
         for subdir in os.listdir(dir):
             subdir = os.path.join(dir, subdir)
+            if self._subdir_contains_spec(subdir, spec): return subdir
 
-            id_fname = os.path.join(subdir, self.get_id_fname())
-            if not os.path.exists(id_fname): continue
-            with open(id_fname) as f:
-                id = f.read()
-
-            if self.id_eq_spec(id, spec):
-                return subdir
         else:
             while True:
-                subdirs = map(int, os.listdir(dir))
+                subdirs = [int(e) for e in os.listdir(dir) if e.isdigit()]
+
                 if len(subdirs) == 0:
                     subdir = '0'
                 else:
@@ -260,18 +268,15 @@ class FileDataStore(BaseDataStore):
         if not self.auto_init_file_system: self.init_file_system()
 
         subdir = self.get_dir_for_saving(spec)
-        with open(os.path.join(subdir, self.get_id_fname()), 'w') as f:
-            if self.store_key:
-                f.write(spec.key)
-            else:
-                json.dump(spec.to_dict(), f, indent=2)
+        with open(os.path.join(subdir, 'spec_dict'), 'w') as f:
+            json.dump(spec.to_dict(), f, indent=2)
 
         self.serializer.save(series, subdir)
 
     def __contains__(self, spec):
         try:
-            subdir = self._get_subdir(spec)
-            return self.serializer.exists(subdir)
+            self._get_subdir(spec)
+            return True
         except KeyError:
             return False
 
