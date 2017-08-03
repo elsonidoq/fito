@@ -65,7 +65,7 @@ class FileDataStore(BaseDataStore):
         serialize=False
     )
 
-    allow_human_readable_dirs = PrimitiveField(default=False)
+    allow_human_readable_dirs = PrimitiveField(default=True)
     match_using_key = PrimitiveField(
         default=True,
         serialize=False,
