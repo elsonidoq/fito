@@ -1,3 +1,4 @@
+from threading import Lock
 from collections import OrderedDict
 
 from fito import PrimitiveField
@@ -45,6 +46,7 @@ class FifoCache(object):
     """
 
     no_result = object()
+    lock = Lock()
 
     def __init__(self, size=500, verbose=False):
         self.verbose = verbose
@@ -55,15 +57,16 @@ class FifoCache(object):
         if operation not in self.queue:
             return self.no_result
 
-        if self.verbose: print "Fifo hit!"
-        res = self.queue.pop(operation)
-        self.queue[operation] = res
+        with self.lock:
+            res = self.queue.pop(operation)
+            self.queue[operation] = res
         return res
 
     def set(self, operation, value):
-        if len(self.queue) >= self.size:
-            if self.verbose: print "Fifo pop!"
-            op, _ = self.queue.popitem(False)
-        self.queue[operation] = value
+        with self.lock:
+            if len(self.queue) >= self.size:
+                if self.verbose: print "Fifo pop!"
+                op, _ = self.queue.popitem(False)
+            self.queue[operation] = value
 
 
