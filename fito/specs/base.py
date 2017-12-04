@@ -464,7 +464,7 @@ class Spec(object):
             if attr_type.has_default_value():
                 val = kwargs.get(attr, attr_type.default)
             elif attr not in kwargs:
-                raise RuntimeError("Missing value for attribute '{}' on class '{}'".format(attr, type(self).__name__))
+                raise RuntimeError("Missing value for attribute '{}' on class '{}'".format(attr, cls.__name__))
             else:
                 val = kwargs[attr]
 
