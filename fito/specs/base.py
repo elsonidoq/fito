@@ -46,10 +46,11 @@ try:
         return load(*args, **kwargs)
 
 
-    json.dump = json_dump
-    json.dumps = json_dumps
-    json.load = json_load
-    json.loads = json_loads
+    # This is commented because it's not well implemented and it breaks with matplotlib and with luigi.FrozenOrderedDict
+    # json.dump = json_dump
+    # json.dumps = json_dumps
+    # json.load = json_load
+    # json.loads = json_loads
 
 except ImportError:
     warnings.warn("Couldn't import json_util from bson, won't be able to handle datetime")
