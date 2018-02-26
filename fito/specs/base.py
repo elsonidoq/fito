@@ -18,15 +18,23 @@ try:
     from bson import json_util
     from json import dumps, dump, load, loads
 
-
     def json_dumps(*args, **kwargs):
-        kwargs['default'] = json_util.default
-        return dumps(*args, **kwargs)
+        orig_kwargs = kwargs.copy()
+        try:
+            kwargs['default'] = json_util.default
+            return dumps(*args, **kwargs)
+        except Exception:
+            return dumps(*args, **orig_kwargs)
 
 
     def json_dump(*args, **kwargs):
-        kwargs['default'] = json_util.default
-        return dump(*args, **kwargs)
+        orig_kwargs = kwargs.copy()
+        try:
+            kwargs['default'] = json_util.default
+            return dump(*args, **kwargs)
+        except Exception:
+            return dump(*args, **orig_kwargs)
+
 
 
     def set_default_json_options():
@@ -37,20 +45,29 @@ try:
 
 
     def json_loads(*args, **kwargs):
-        kwargs['object_hook'] = partial(json_util.object_hook, json_options=set_default_json_options())
-        return loads(*args, **kwargs)
+        orig_kwargs = kwargs.copy()
+        try:
+            kwargs['object_hook'] = partial(json_util.object_hook, json_options=set_default_json_options())
+            return loads(*args, **kwargs)
+        except Exception:
+            return loads(*args, **orig_kwargs)
+
 
 
     def json_load(*args, **kwargs):
-        kwargs['object_hook'] = partial(json_util.object_hook, json_options=set_default_json_options())
-        return load(*args, **kwargs)
+        orig_kwargs = kwargs.copy()
+        try:
+            kwargs['object_hook'] = partial(json_util.object_hook, json_options=set_default_json_options())
+            return load(*args, **kwargs)
+        except Exception:
+            return load(*args, **orig_kwargs)
 
 
     # This is commented because it's not well implemented and it breaks with matplotlib and with luigi.FrozenOrderedDict
-    # json.dump = json_dump
-    # json.dumps = json_dumps
-    # json.load = json_load
-    # json.loads = json_loads
+    json.dump = json_dump
+    json.dumps = json_dumps
+    json.load = json_load
+    json.loads = json_loads
 
 except ImportError:
     warnings.warn("Couldn't import json_util from bson, won't be able to handle datetime")
